@@ -13,17 +13,19 @@ const config = {
   get directiveNames() {
     return {
       storage: 'storage',
-      model: 'model'
+      model: 'model',
+      owner: 'owner'
     }
   }
 }
 export class ArGraphQLApp {
-  constructor({ name, version, graphQLTypeDefs }) {
+  constructor({ name, version, graphQLTypeDefs, getWallet = async _ => {} }) {
     this.name = name
     this.version = version
     /** @param {Model[]} models */
     this.models = []
     this.graphQLTypeDefs = graphQLTypeDefs
+    this.getWallet = getWallet
     this.registerModelsFromSchema(buildSchema(graphQLTypeDefs))
   }
 
@@ -64,24 +66,31 @@ export class ArGraphQLApp {
         ${types.Query}
       }
     `
+
     return makeExecutableSchema({
       typeDefs,
       resolvers
     })
   }
 
-  isModel(typeObject) {
+  typeObjectHasDirective(typeObject, directiveName) {
     return (
       typeObject.astNode &&
-      !!typeObject.astNode.directives.find(
-        d => d.name.value == config.directiveNames.model
-      )
+      !!typeObject.astNode.directives.find(d => d.name.value == directiveName)
     )
   }
+
+  fieldTypeHasDirective(fieldObject, directiveName) {
+    for (const directive of fieldObject.astNode.directives) {
+      if (directive.name.value == directiveName) return true
+    }
+    return false
+  }
+
   registerModelsFromSchema(gqlSchema) {
     const types = Object.entries(gqlSchema._typeMap)
     const modelTypes = types.filter(([typeName, typeObject]) =>
-      this.isModel(typeObject)
+      this.typeObjectHasDirective(typeObject, config.directiveNames.model)
     )
     for (const [typeName, typeObject] of modelTypes) {
       const props = []
@@ -89,31 +98,51 @@ export class ArGraphQLApp {
         typeObject._fields
       )) {
         const fieldTypeString = fieldObject.type.inspect()
-        // if (fieldName == 'votes') debugger
-        const typeName =
+        const fieldTypeName =
           fieldObject.type.name ||
           fieldObject.type.ofType.name ||
           fieldObject.type.ofType.ofType.name ||
           fieldObject.type.ofType.ofType.ofType.name ||
           fieldObject.type.ofType.ofType.ofType.ofType.name
-        const prop = {
+        const propModelEntry = modelTypes.find(
+          ([name]) => name == fieldTypeName
+        )
+        let prop = {
           name: fieldName,
           typeDef: fieldTypeString,
-          typeName: typeName,
+          typeName: fieldTypeName,
           isRequired: fieldTypeString.endsWith('!'),
           isPlural: fieldTypeString.startsWith('['),
-          isModel: !!modelTypes.find(([name]) => name == typeName),
-          isStorage: false
+          isModel: !!propModelEntry,
+          isStorage: this.fieldTypeHasDirective(
+            fieldObject,
+            config.directiveNames.storage
+          )
         }
-        if (fieldName == 'votes') debugger
 
-        for (const directive of typeObject.astNode.directives) {
-          switch (directive.name.value) {
-            case config.directiveNames.storage:
-              prop.isStorage = true
-              break
-          }
+        prop = {
+          ...prop,
+          isOwner:
+            propModelEntry &&
+            this.typeObjectHasDirective(
+              propModelEntry[1],
+              config.directiveNames.owner
+            ),
+          inputName: !prop.isModel
+            ? prop.name
+            : prop.isPlural
+            ? prop.name + 'Ids'
+            : prop.name + 'Id',
+          inputTypeDef:
+            prop.name == 'id'
+              ? 'ID'
+              : prop.isModel
+              ? prop.typeDef.replace(prop.typeName, 'ID')
+              : prop.typeDef
         }
+        console.log(propModelEntry)
+        if (prop.isOwner) debugger
+
         props.push(prop)
       }
       this.registerModel({ name: typeName, props: props })
@@ -135,17 +164,23 @@ class ModelProp {
     isModel = false,
     isRequired = false,
     isPlural = false,
+    isOwner = false,
     typeDef,
     typeName,
-    name
+    name,
+    inputTypeDef,
+    inputName
   }) {
     this.isStorage = isStorage
     this.isModel = isModel
     this.isRequired = isRequired
     this.isPlural = isPlural
+    this.isOwner = isOwner
     this.name = name
     this.typeDef = typeDef
     this.typeName = typeName
+    this.inputTypeDef = inputTypeDef
+    this.inputName = inputName
   }
 }
 
@@ -173,23 +208,12 @@ class Model {
   get definitions() {
     const dropCaseName = this.dropCaseFirstLetter(this.name)
     const inputTypeName = `${this.name}Input`
-    const inputFields = this.props
-      .filter(prop => prop.name == 'createdAt' || prop.name == 'updatedAt')
-      .map(prop => {
-        console.log('isModel', prop.isModel)
-        const type =
-          prop.name == 'id'
-            ? 'ID'
-            : prop.isModel
-            ? prop.typeDef.replace(prop.typeName, 'ID')
-            : prop.typeDef
-        const name = !prop.isModel
-          ? prop.name
-          : prop.isPlural
-          ? prop.name + 'Ids'
-          : prop.name + 'Id'
-        return `${name}: ${type}`
-      })
+    const inputFieldProps = this.props.filter(
+      prop =>
+        !prop.isOwner && prop.name !== 'createdAt' && prop.name !== 'updatedAt'
+    )
+    const inputFields = inputFieldProps
+      .map(prop => `${prop.inputName}: ${prop.inputTypeDef}`)
       .join('\n')
     console.log(inputFields)
     const searchTypeName = `${this.name}SearchInput`
@@ -211,17 +235,22 @@ class Model {
       },
       resolvers: {
         Mutation: {
-          [createOrUpdateMutationName]() {}
+          [createOrUpdateMutationName]: async (root, args, context, info) => {
+            const modelArg = args[dropCaseName]
+            const record = {}
+            for (let prop of inputFieldProps) {
+              record[prop.name] = args[prop.inputName]
+            }
+            record.id = record.id || this.uuidv4()
+
+            return record
+          }
         },
         Query: {
-          [dropCaseName]() {}
+          async [dropCaseName]() {}
         }
       }
     }
-  }
-
-  now() {
-    return new Date().toISOString()
   }
 
   static propsToTags(obj) {
@@ -250,27 +279,73 @@ class Model {
     }
   }
 
-  async save({ storageProps = [] }) {
+  get sharedTagNames() {
+    return {
+      APP_NAME: 'App-Name',
+      APP_VERSION: 'App-Version',
+      APP_ENV: 'App-Environment',
+      DATE_TIME: 'Date-Time',
+      CONTENT_TYPE: 'Content-Type',
+      DATA_MODEL: 'Data-Model'
+    }
+  }
+
+  async toTransaction() {
     const tagData = { ...this }
+    const storageProps = this.props.filter(p => p.isStorage).map(p => p.name)
     const storageData = {}
     for (let prop of storageProps) {
-      storageData[prop] = copy[prop]
-      delete copy[prop]
+      storageData[prop] = tagData[prop]
+      delete tagData[prop]
     }
     const tx = await arweave.createTransaction(
       {
-        data: JSON.stringify({ ...this })
+        data: JSON.stringify(storageData)
       },
       wallet
     )
     const tagEntries = this.__proto__.propsToTags(tagData)
     for (const [name, value] of tagEntries) tx.addTag(name, value)
-    tx.addTag('App-Name', 'loom-chat')
-    tx.addTag('App-Version', this.app.version)
-    tx.addTag('Content-Type', 'application/json')
-    tx.addTag('Data-Model', this.name)
+    const {
+      APP_NAME,
+      APP_VERSION,
+      APP_ENV,
+      DATE_TIME,
+      CONTENT_TYPE,
+      DATA_MODEL
+    } = this.sharedTagNames
+    tx.addTag(APP_NAME, this.app.name)
+    tx.addTag(APP_VERSION, this.app.version)
+    tx.addTag(APP_ENV, this.app.env)
+    tx.addTag(DATE_TIME, new Date().toISOString())
+    tx.addTag(CONTENT_TYPE, 'application/json')
+    tx.addTag(DATA_MODEL, this.name)
+    const wallet = await this.app.getWallet()
     await arweave.transactions.sign(tx, wallet)
     await arweave.transactions.post(tx)
+  }
+  async findAll({ filter: { AND = [] } = {} }) {
+    const txids = await arweave.arql({
+      op: 'and',
+      expr1: {
+        op: 'equals',
+        expr1: 'from',
+        expr2: 'hnRI7JoN2vpv__w90o4MC_ybE9fse6SUemwQeY8hFxM'
+      },
+      expr2: {
+        op: 'or',
+        expr1: {
+          op: 'equals',
+          expr1: 'type',
+          expr2: 'post'
+        },
+        expr2: {
+          op: 'equals',
+          expr1: 'type',
+          expr2: 'comment'
+        }
+      }
+    })
   }
   uuidv4() {
     const goodUUID = _ =>

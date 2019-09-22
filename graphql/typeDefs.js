@@ -3,27 +3,29 @@ export const typeDefs = /* GraphQL */ `
   directive @model on OBJECT
   # defines that item will be stored in non-searchable data
   directive @storage on FIELD_DEFINITION
+  # defines that item can own records
+  directive @owner on OBJECT
   # ISO Format
   directive @date(
     defaultFormat: String = "YYYY-MM-DDTHH:mm:ss.sssZ"
   ) on FIELD_DEFINITION
-  # type ArweaveTransactionTag @model {
-  #   name: String!
-  #   value: String!
-  # }
-  # # from https://github.com/ArweaveTeam/arweave-js#get-a-transaction
-  # type ArweaveTransaction @model {
-  #   last_tx: String!
-  #   owner: String!
-  #   tags: [ArweaveTransactionTag!]!
-  #   target: String!
-  #   # quantity is a number as a string e.g. '0'
-  #   quantity: String!
-  #   data: String!
-  #   reward: String!
-  #   signature: String!
-  #   id: ID!
-  # }
+  type ArweaveTransactionTag @model {
+    name: String!
+    value: String!
+  }
+  # from https://github.com/ArweaveTeam/arweave-js#get-a-transaction
+  type ArweaveTransaction @model {
+    last_tx: String!
+    owner: String!
+    tags: [ArweaveTransactionTag!]!
+    target: String!
+    # quantity is a number as a string e.g. '0'
+    quantity: String!
+    data: String!
+    reward: String!
+    signature: String!
+    id: ID!
+  }
   interface Thing {
     id: ID!
     # arweave transaction ID
@@ -32,7 +34,7 @@ export const typeDefs = /* GraphQL */ `
     updatedAt: String!
   }
   # intrinsically attached to the wallet
-  type User implements Thing @model {
+  type User implements Thing @model @owner {
     id: ID!
     # arweave transaction ID
     # transaction: ArweaveTransaction!

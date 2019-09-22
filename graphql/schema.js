@@ -15,7 +15,12 @@ import { ArGraphQLApp } from '../utils/Arweave'
 const app = new ArGraphQLApp({
   name: 'loom-chat',
   version: process.env.version,
-  graphQLTypeDefs: typeDefs
+  env: process.env.NODE_ENV == 'production' ? 'production' : 'test',
+  graphQLTypeDefs: typeDefs,
+  getWallet: async _ => {
+    const wallet = window.localStorage.getItem(process.env.authWalletStorageKey)
+    return JSON.parse(wallet)
+  }
 })
 
 export const schema = app.buildSchemaFromModels()

@@ -30,6 +30,12 @@ Implemented client-side GraphQL wrapper around Arweave, taking advantage of the 
 
 ### Permissioned & Validated Storage
 > With distributed storage applications, anyone can *write* to our "database". So authentication and validation needs to be on the *read* side.
+To prevent editing of records by non-owners:
+1. Records must have unique ID's
+2. The first transaction with a given record ID is the Root record 
+   1. Arweave sorts transactions [by block height](https://github.com/ArweaveTeam/arweave/blob/bfcab4b5aa38b6760e479663431b85773a5bce68/src/ar_tx_search.erl#L77)
+3. All following record transactions must comply with the Root record owner's authentication rules.
+  
 First querying all transactions to an object with ID of `X`
 
 ### Users 
