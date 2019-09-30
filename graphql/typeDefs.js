@@ -1,23 +1,17 @@
 export const typeDefs = /* GraphQL */ `
-  # defines arweave models
-  directive @model on OBJECT
-  # defines that item will be stored in non-searchable data
-  directive @storage on FIELD_DEFINITION
-  # defines that item can own records
-  directive @owner on OBJECT
   # ISO Format
   directive @date(
     defaultFormat: String = "YYYY-MM-DDTHH:mm:ss.sssZ"
   ) on FIELD_DEFINITION
-  type ArweaveTransactionTag @model {
+  type TransactionTag {
     name: String!
     value: String!
   }
   # from https://github.com/ArweaveTeam/arweave-js#get-a-transaction
-  type ArweaveTransaction @model {
+  type Transaction {
     last_tx: String!
     owner: String!
-    tags: [ArweaveTransactionTag!]!
+    tags: [TransactionTag!]!
     target: String!
     # quantity is a number as a string e.g. '0'
     quantity: String!
@@ -26,81 +20,223 @@ export const typeDefs = /* GraphQL */ `
     signature: String!
     id: ID!
   }
+  enum CurrencyDenomination {
+    Arweave
+    Winston
+  }
+  input TransactionFilter {
+    # "The supported operations are eq, and, and or. You can query by custom tags, which are, in fact, key-value pairs, or system tags from, to, quantity, reward, block_height, and block_indep_hash."
+    id: ID
+    from: String
+    to: String
+    quantity: Float
+    reward: Float
+    block_height: Int
+    block_indep_hash: String
+  }
   interface Thing {
     id: ID!
     # arweave transaction ID
-    # transaction: ArweaveTransaction!
+    # transaction: Transaction!
     createdAt: String!
     updatedAt: String!
   }
-  # intrinsically attached to the wallet
-  type User implements Thing @model @owner {
+  enum PermissionRole {
+    ADMIN
+  }
+  enum PermissionStatus {
+    ENABLED
+    DISABLED
+  }
+
+  type Permission implements Thing {
     id: ID!
-    # arweave transaction ID
-    # transaction: ArweaveTransaction!
+    createdAt: String!
+    updatedAt: String!
+    account: Account!
+    address: String!
+    role: PermissionRole!
+    status: PermissionStatus!
+  }
+  input PermissionInput {
+    id: ID
+    accountId: ID!
+    address: String!
+    role: PermissionRole!
+    status: PermissionStatus!
+  }
+
+  enum ImageFileType {
+    JPG
+    PNG
+    SVG
+  }
+  type Image implements Thing {
+    id: ID!
+    createdAt: String!
+    updatedAt: String!
+    alt: String
+    base64: String!
+    fileType: ImageFileType!
+  }
+  input ImageInput {
+    id: ID
+    alt: String
+    base64: String!
+    fileType: ImageFileType!
+  }
+
+  type Profile implements Thing {
+    id: ID!
     createdAt: String!
     updatedAt: String!
     username: String!
     displayName: String!
+    biography: String!
+    avatarImage: Image
+    versions: [Profile]!
   }
+  input ProfileInput {
+    id: ID
+    username: String!
+    displayName: String!
+    biography: String!
+    avatarImageId: ID
+  }
+  type Account implements Thing {
+    id: ID!
+    # arweave transaction ID
+    # transaction: Transaction!
+    createdAt: String!
+    updatedAt: String!
+    primaryAddress: String!
+    profile: Profile!
+    permissions: [Permission]!
+    # returns all addresses allowed by permissions
+    addresses: [String]!
+    versions: [Account]!
+  }
+  input AccountInput {
+    id: ID
+    profileId: ID!
+    primaryAddress: String!
+  }
+  input AccountFilter {
+    AND: [AccountFilter]
+    OR: [AccountFilter]
+    id: ID
+    profileId: ID
+    primaryAddress: String
+  }
+
   enum VoteIntent {
     UP
     DOWN
   }
-  type Vote implements Thing @model {
+  type Vote implements Thing {
     id: ID!
     # arweave transaction ID
-    # transaction: ArweaveTransaction!
+    # transaction: Transaction!
     createdAt: String!
     updatedAt: String!
-    user: User!
+    intent: VoteIntent!
+    account: Account!
     post: Post!
+  }
+  input VoteInput {
+    id: ID
+    postId: ID!
     intent: VoteIntent!
   }
-  type Category implements Thing @model {
+  type Category implements Thing {
     id: ID!
     # arweave transaction ID
-    # transaction: ArweaveTransaction!
+    # transaction: Transaction!
     createdAt: String!
     updatedAt: String!
     title: String!
     description: String!
+    children: [Category]!
     parent: Category
   }
-  type Post implements Thing @model {
+  input CategoryInput {
+    id: ID
+    title: String!
+    description: String!
+    parentId: ID
+  }
+  input CategoryFilter {
+    AND: [CategoryFilter]
+    OR: [CategoryFilter]
+    title: String
+    description: String
+    parentId: ID
+  }
+  type Post implements Thing {
     id: ID!
     # arweave transaction ID
-    # transaction: ArweaveTransaction!
+    # transaction: Transaction!
     createdAt: String!
     updatedAt: String!
     title: String!
-    content: String! @storage
-    user: User!
-    parent: Post
+    content: String!
+
     votes: [Vote!]!
+    account: Account!
+    parent: Post
     category: Category
+    # optional because versions cannot have versions
+    versions: [Post]
   }
-  # input PostInput {
-  #   # if 'id' is present, will update. Otherwise, will create.
-  #   id: ID
-  #   title: String!
-  #   content: String!
-  #   parentId: ID
-  #   votesIds: [ID!]!
-  #   categoryId: ID
-  # }
-  type ArvilLyrics {
-    words: String!
+  input PostInput {
+    # if 'id' is present, will update. Otherwise, will create.
+    id: ID
+    title: String!
+    content: String!
+    parentId: ID
+    categoryId: ID
+    accountId: ID!
   }
-  input AvrilOptionsInput {
-    # whether or not said boi is a skater boi
-    isSkaterBoi: Boolean!
+  input PostFilter {
+    AND: [PostFilter]
+    OR: [PostFilter]
+    title: String
+    parentId: ID
+    categoryId: ID
+    accountId: ID
   }
-  # type Query {
-  #   hello(name: String): String!
-  # }
-  # type Mutation {
-  #   goodbye(avrilOptions: AvrilOptionsInput!): ArvilLyrics!
-  #   # createOrUpdatePost(post: PostInput!): Post!
-  # }
+
+  type Auth {
+    accounts: [Account]!
+    account: Account
+    wallet: String
+    balance: Float!
+    address: String
+  }
+
+  type Query {
+    # DATA FETCHING
+    allPosts(filter: PostFilter, first: Int, skip: Int): [Post]!
+    allCategories(filter: CategoryFilter, first: Int, skip: Int): [Category]!
+    allAccounts(filter: AccountFilter, first: Int, skip: Int): [Account]!
+    allTransactions(filter: TransactionFilter): [Transaction]!
+    account(id: ID!): Account
+
+    auth: Auth!
+  }
+  type Mutation {
+    # AUTH
+    login(wallet: String!): Auth!
+    logout: Auth!
+    setAuthAccount(accountId: ID!): Account!
+
+    # DATA WRITING
+    createOrUpdateVote(vote: VoteInput): Vote!
+    createOrUpdatePost(post: PostInput!): Post!
+    createOrUpdateImage(image: ImageInput!): Image!
+    createOrUpdateProfile(profile: ProfileInput!): Profile!
+    createOrUpdateAccount(account: AccountInput!): Account!
+    createOrUpdateCategory(category: CategoryInput!): Category!
+    createOrUpdatePermission(permission: PermissionInput!): Permission!
+  }
 `

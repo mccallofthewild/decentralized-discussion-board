@@ -1,64 +1,57 @@
 
 <template lang="pug">
-.container
-
-  .file-input
-    input#file(type='file' @change='login')
-    #desc Drop a keyfile to login.
-  div
-    p
-      br
-      | Weavemail is mail that 
-      b Google cannot read
-      | .
-      br
-      | Mail that 
-      b cannot be censored
-      | .
-      br
-      | Mail that 
-      b cannot be lost
-      | .
-      br
-      span(style='display: inline-block; margin-top: 0.5em; margin-bottom: 0.75em;')
-        | Weavemail is mail that 
-        b you own
-        | .
-      br
-    button.button.button-outline(onclick=" window.open('https://tokens.arweave.org','_blank')")
-      | Get a wallet with some tokens.
+div(v-if="auth")
+  form(v-if="!auth.wallet")
+    xInputFile(@change='login')
+      template(#activator="{ activate }")
+        button(@click="activate")
+          span.emoji 🗝
+          | Upload KeyFile
+    p or
+    button.button.button-outline(onclick="window.open('https://tokens.arweave.org','_blank')")
+      span.emoji 💸 
+      | Get a free wallet with some tokens.
+  AuthAccountSelect(
+    v-if="auth.accounts.length"
+  )
+  AccountProfile(v-if="auth.wallet && !auth.accounts.length")
 
 </template>
 
 
 <script>
-import { AR__SET_WALLET } from '@/store-names/mutations'
-import { AR__LOGIN } from '../store-names/actions'
+import gql from 'graphql-tag'
+import { MUTATION_LOGIN, QUERY_AUTH } from '../client-graphql'
 export default {
-  methods: {
-    login(e) {
-      const files = e.target.files
-      const fr = new FileReader()
-      fr.onload = ev => {
-        try {
-          const wallet = JSON.parse(ev.target.result)
-          this.$store.dispatch(AR__LOGIN, { wallet })
-        } catch (err) {
-          alert('Error logging in: ' + err)
-        }
-      }
-      fr.readAsText(files[0])
-    }
+  apollo: {
+    auth: QUERY_AUTH
   },
-  watch: {
-    '$store.state.ar.wallet': {
-      immediate: true,
-      handler(val) {
-        if (val) {
-          alert('logged in!')
-          this.$router.push('/')
+  methods: {
+    async login(e) {
+      await new Promise((resolve, reject) => {
+        const [file] = e.target.files
+
+        const fr = new FileReader()
+        fr.onload = ev => {
+          try {
+            const wallet = ev.target.result
+            if (!file.type.includes('json')) {
+              // QR code image parser
+            }
+            this.$apollo.mutate({
+              mutation: MUTATION_LOGIN,
+              refetchQueries: [{ query: QUERY_AUTH }],
+              variables: {
+                wallet
+              }
+            })
+            resolve(true)
+          } catch (e) {
+            reject(e)
+          }
         }
-      }
+        fr.readAsText(file)
+      })
     }
   }
 }
