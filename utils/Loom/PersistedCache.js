@@ -7,11 +7,12 @@ import PropTypes from 'prop-types'
   3. Expire data that is too old
 */
 export class PersistedCache extends LoomCache {
-  constructor({ storageNamespace, entryFromJSON }) {
+  constructor({ storageNamespace, entryFromJSON, hoursUntilExpiration = 1 }) {
     PropTypes.checkPropTypes(
       {
         storageNamespace: PropTypes.string.isRequired,
-        entryFromJSON: PropTypes.func
+        entryFromJSON: PropTypes.func,
+        hoursUntilExpiration: PropTypes.number
       },
       arguments[0],
       '#constructor',
@@ -19,7 +20,7 @@ export class PersistedCache extends LoomCache {
     )
     super()
     // expire a record after one hour
-    this.millisecondsUntilExpiration = 1 * 60 * 60 * 1000
+    this.millisecondsUntilExpiration = hoursUntilExpiration * 60 * 60 * 1000
     this.storageNamespace = storageNamespace
     this.entryFromJSON = entryFromJSON || (r => r)
     this.recordTimestamps = new Map()
@@ -35,8 +36,16 @@ export class PersistedCache extends LoomCache {
       this.saveToStorage()
     })
   }
-  static loadFromStorage({ storageNamespace, entryFromJSON }) {
-    const instance = new this({ storageNamespace, entryFromJSON })
+  static loadFromStorage({
+    storageNamespace,
+    entryFromJSON,
+    hoursUntilExpiration
+  }) {
+    const instance = new this({
+      storageNamespace,
+      entryFromJSON,
+      hoursUntilExpiration
+    })
     const json = localStorage.getItem(instance.storageNamespace)
     try {
       const parsed = JSON.parse(json)

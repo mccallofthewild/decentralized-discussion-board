@@ -1,31 +1,38 @@
 
 <template lang="pug">
-  div(v-if="post")
-    h2 {{ post.title }} 
-    small @{{ post.account.profile.username }}
-    div(v-if="post.category")
-      nuxt-link(:to="{ name: 'categories-categoryId', params: { categoryId: post.category.id } }")
-        em {{ '#' + post.category.title}}
-    div Created {{ new Date(post.createdAt).toLocaleDateString() }} {{ new Date(post.createdAt).toLocaleTimeString() }}
-    div(v-if="post.createdAt != post.updatedAt") Updated {{ new Date(post.updatedAt).toLocaleDateString() }} {{ new Date(post.updatedAt).toLocaleTimeString() }}
-    p(style="white-space: pre;") {{ post.content }}
-    span(style="display: flex; align-items: center;")
-      button(:disabled="!auth || !auth.account || ownedByUser" title="upvote" @click="vote(true)") 🔼
-      | {{ voteSum.UP - voteSum.DOWN }}
-      button(:disabled="!auth || !auth.account || ownedByUser" title="downvote" @click="vote(false)") 🔽
-      button(v-if="ownedByUser" title="reply") ↩️
-      button(v-if="ownedByUser" title="edit") ✍️
-      //- button(title="delete") 🗑
-      button(title="history" @click="$router.push({name: 'posts-postId-history', params: { postId: post.id } })") 📜
-    br
-    br
+  div(v-if="post").post
+    Avatar(:avatarImage="post.account.profile.avatarImage").post__avatar
+    div.post__data
+      xText(h2) {{ post.title }} 
+      small @{{ post.account.profile.username }}
+      div(v-if="post.category")
+        nuxt-link(:to="{ name: 'categories-categoryId', params: { categoryId: post.category.id } }")
+          em {{ '#' + post.category.title}}
+      div Created {{ timeago.format(post.createdAt) }}
+      div(v-if="post.createdAt != post.updatedAt") {{ timeago.format(post.updatedAt) }}
+      p(style="white-space: pre;") {{ post.content }}
+      span(style="display: flex; align-items: center;")
+        button(:disabled="!auth || !auth.account || ownedByUser" title="upvote" @click="vote(true)") 🔼
+        | {{ voteSum.UP - voteSum.DOWN }}
+        button(:disabled="!auth || !auth.account || ownedByUser" title="downvote" @click="vote(false)") 🔽
+        button(v-if="ownedByUser" title="reply") ↩️
+        button(v-if="ownedByUser" title="edit") ✍️
+        //- button(title="delete") 🗑
+        button(title="history" @click="$router.push({name: 'posts-postId-history', params: { postId: post.id } })") 📜
+      br
+      br
 </template>
-
+ 
 <script>
 import gql from 'graphql-tag'
 import { QUERY_POSTS, QUERY_AUTH } from '../../client-graphql'
+import timeago from 'timeago.js';
+
 export default {
   props: ['post'],
+  data: _ => ({
+    timeago
+  }),
   apollo: {
     auth: QUERY_AUTH
   },
@@ -90,6 +97,16 @@ export default {
 
 
 <style lang="stylus" scoped>
+.post {
+  display: flex;
+  
+  &__avatar {
+    margin-top: 5px;
+  }  
+  &__data {
+    margin-left: 30px;
+  }
+}
 button:disabled {
   cursor: not-allowed !important;
   opacity: 0.5;

@@ -2,6 +2,8 @@
 <template lang="pug">
 div(v-if="!$apollo.queries.auth.loading && accountData")
   h1 {{ !isEditing ? 'Account' : !accountData.id ? 'Create Account' : 'Update Account' }}
+  nuxt-link(tag="button" to="/accounts/select") Switch Account
+  p 💰{{ auth.balance }} AR
   form(@submit.prevent="save").profile
     Avatar(
       :avatar-image="accountData.profile.avatarImage"

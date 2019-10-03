@@ -1,12 +1,15 @@
 <template lang="pug">
 div.app-container
-  header 
-    NavSidebar(:scrollProgress="scrollProgress")
-  main(
-    @scroll="monitorScroll"
-  )
-    button(v-if="$route.path != '/'" @click="$router.back()") ⏪ Back
-    nuxt
+  div 
+  div
+    header 
+      Navigation(:scrollProgress="scrollProgress")
+    main(
+      @scroll="monitorScroll"
+    )
+      button(v-if="$route.path != '/'" @click="$router.back()") ⏪ Back
+      nuxt
+  div
 
 
 </template>
@@ -61,18 +64,10 @@ export default {
 </script>
 
 <style lang="stylus">
-:root {
-  --color-accent: __colors.accent.main;
-}
-
 .app-container {
-  navWidth = (100vw / 4.5);
   display: grid;
-  grid-template-columns: navWidth 100vw - navWidth;
-  height: 100vh;
+  grid-template-columns: 1fr 3fr 1fr;
   width: 100%;
-  overflow: hidden;
-  grid-auto-flow: column;
 }
 
 html {
@@ -86,71 +81,6 @@ html {
   -webkit-font-smoothing: antialiased;
   box-sizing: border-box;
   /* text-transform: lowercase !important; */
-}
-
-header {
-  max-height: 100vh;
-  overflow: hidden;
-}
-
-main {
-  display: block;
-  padding: __spacing.area;
-  overflow-y: scroll;
-  height: 100vh;
-}
-
-*:focus {
-  outline: none;
-}
-
-body {
-  /* zoom: 1.5; */
-}
-
-a {
-  color: __colors.accent.main;
-}
-
-hr {
-  border-bottom: 1px solid black;
-  margin-top: 25px;
-}
-
-button {
-  border: none;
-  width: auto;
-  font-size: 1rem;
-  text-transform: uppercase;
-  font-weight: 600;
-  font-variant: small-caps;
-  margin: 5px 0px;
-  padding: 3.5px 10px 6px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: __colors.accent.main;
-  background: rgba(0, 0, 0, 0.04);
-
-  &:hover {
-    border-color: transparent;
-    background: rgba(0, 0, 0, 0.01);
-  }
-
-  &:focus {
-  }
-}
-
-select {
-  border: 1px solid black;
-  font-size: 1rem;
-  border-radius: 0;
-  padding: 10px;
-  background: white;
-}
-
-button .emoji {
-  font-size: 0.8em;
 }
 
 *, *:before, *:after {

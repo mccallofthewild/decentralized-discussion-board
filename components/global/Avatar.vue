@@ -6,7 +6,7 @@
 
 
 <script>
-import patternImage from '~/assets/images/default-avatar.svg'
+
 export default {
   props: {
     avatarImage: {}
@@ -15,7 +15,7 @@ export default {
     image() {
       return (
         this.avatarImage || {
-          base64: patternImage,
+          base64: 'https://source.unsplash.com/featured/?face,portrait&' + Date.now(),
           fileType: 'SVG',
           alt: null
         }
@@ -43,15 +43,14 @@ sizes ?= {
 .image--avatar {
   position: relative;
   background-color: white;
-  border-radius: 100%;
-  height: 100%;
-  width: 100%;
+  height: 50px;
+  width: 50px;
   background-position: center center;
   background-size: cover;
   background-repeat: no-repeat;
   box-shadow: 0px 5px 10px -8px rgba(black, 0.5);
-  margin: 10px;
   transition: all 1s ease;
+  background-color: black;
 
   &[small] {
     padding: (sizes.small / 2px);

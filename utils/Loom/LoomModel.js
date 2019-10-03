@@ -58,13 +58,26 @@ export class LoomModel {
     this.isImmutable = immutable
     this.recordVersionReducer = reducer
     this.customRecordValidator = validator
-    this.memoryCache = {
-      txs: {},
-      records: {}
-    }
-    this.requestCache = new LoomCache()
+
+    this.networkRecordCache = PersistedCache.loadFromStorage({
+      storageNamespace: 'Persisted-Network-Record-Cache--' + this.name,
+      hoursUntilExpiration: 0.2
+    })
+    this.transactionCache = PersistedCache.loadFromStorage({
+      storageNamespace: 'Persisted-Tx-Cache--' + this.name,
+      hoursUntilExpiration: 0.2,
+      entryFromJSON(tx) {
+        return new Transaction(tx)
+      }
+    })
+
+    this.requestCache = PersistedCache.loadFromStorage({
+      storageNamespace: 'Persisted-Request-Cache--' + this.name,
+      hoursUntilExpiration: 0.2
+    })
     this.optimisticRecordCache = PersistedCache.loadFromStorage({
       storageNamespace: 'Optimistic-Response-Cache--' + this.name,
+      hoursUntilExpiration: 1,
       entryFromJSON(r) {
         r.__tx = new Transaction(r.__tx)
         return r
@@ -316,11 +329,18 @@ export class LoomModel {
   addToMemoryCache(item) {
     requireArguments({ item }, { caller: 'addToMemoryCache' })
     const isRecord = !!item.__tx
-    this.memoryCache[isRecord ? 'records' : 'txs'][item.id] = item
+    if (isRecord) {
+      this.networkRecordCache.set(item.id, item)
+    } else {
+      this.transactionCache.set(item.id, item)
+    }
   }
 
   getFromMemoryCache(itemId, { record = false } = {}) {
-    return this.memoryCache[record ? 'records' : 'txs'][itemId]
+    if (record) {
+      return this.networkRecordCache.get(itemId)
+    }
+    return this.transactionCache.get(itemId)
   }
 
   tryOptimisticResponse(id, record) {

@@ -1,8 +1,10 @@
 
 <template lang="pug">
-div 
-
-  div(v-for="post in posts").posts-container
+div.post-list
+  .post-list__heading
+    xText(h1) Top Posts
+    xBtn(flat) Create Post
+  div(v-for="post in posts").post-list__posts
     PostListItem(:post="post")
 </template>
 
@@ -32,7 +34,17 @@ export default {
   }
 }
 
-.posts-container {
-  animation: fadeIn 1s ease-out;
+.post-list {
+  margin-top: 30px;
+
+  &__heading {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  &__posts {
+    animation: fadeIn 1s ease-out;
+    margin-top: 30px;
+  }
 }
 </style>

@@ -7,6 +7,7 @@
     h1 Edit History:
     PostListItem(
       v-for="version in post.versions"
+      v-if="version"
       :key="version.id"
       :post="version"
     )
