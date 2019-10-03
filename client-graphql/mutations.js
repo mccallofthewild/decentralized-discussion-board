@@ -1,5 +1,5 @@
 import gql from 'graphql-tag'
-import { FRAGMENT_POST, FRAGMENT_ACCOUNT, FRAGMENT_CATEGORY } from './fragments'
+import { FRAGMENT_POST, FRAGMENT_ACCOUNT, FRAGMENT_CATEGORY, FRAGMENT_VOTE } from './fragments'
 import { print } from 'graphql/language/printer'
 
 export const MUTATION_POST = gql`
@@ -68,3 +68,12 @@ export const MUTATION_CATEGORY = gql`
   }
   ${print(FRAGMENT_CATEGORY)}
 `
+
+export const MUTATION_VOTE = gql`
+          mutation VoteMutation($vote: VoteInput!) {
+            vote: createOrUpdateVote(vote: $vote) {
+              ...vote
+            }
+          }
+          ${FRAGMENT_VOTE}
+        `

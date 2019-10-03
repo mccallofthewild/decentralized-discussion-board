@@ -39,13 +39,14 @@ export default {
               // QR code image parser
             }
             alert(wallet)
-            await this.$apollo.mutate({
+            const { errors = [] } = await this.$apollo.mutate({
               mutation: MUTATION_LOGIN,
               refetchQueries: [{ query: QUERY_AUTH }],
               variables: {
                 wallet
               }
             })
+            errors.forEach(alert)
             resolve(true)
           } catch (e) {
             reject(e)

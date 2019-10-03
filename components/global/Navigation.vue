@@ -14,7 +14,7 @@
           xBtn(text @click='logout' ) 
             | logout 
 
-        xBtn(v-else to='/login') Login
+        xBtn(v-else :nuxt="true" to='/login') Login
 
 </template>
 

@@ -24,5 +24,27 @@ export default {}
     color: #000000;
     letter-spacing: 0;
   }
+  &[title] {
+    font-family: SFProText-Semibold;
+    font-size: 15px;
+    color: rgba(0,0,0,0.50);
+    letter-spacing: 0;
+    &[light] {
+      font-family: SFProText-Regular;
+      font-size: 15px;
+      color: rgba(0,0,0,0.50);
+      letter-spacing: 0;
+    }
+  }
+  &[link] {
+    font-family: SFProText-Semibold;
+    font-size: 15px;
+    color: #692FC6;
+    letter-spacing: 0;
+    cursor: pointer;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }
 </style>

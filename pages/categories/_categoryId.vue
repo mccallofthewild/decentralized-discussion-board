@@ -1,9 +1,11 @@
 
 <template lang="pug">
   div(v-if="category")
-    h1 {{ category.title }}
     div(v-if="posts")
-      PostList(:posts="posts")
+      PostList(
+        :title="category.title"
+        :posts="posts"
+      )
 </template>
 
 
@@ -15,7 +17,7 @@ export default {
     posts() {
       if (!this.allPosts) return []
       return this.allPosts.filter(p => {
-        return p.category && p.category.id == this.$route.params.categoryId
+        return p && p.category && p.category.id == this.$route.params.categoryId
       })
     }
   },

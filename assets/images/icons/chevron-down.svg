@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="11px" height="7px" viewBox="0 0 11 7" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 58 (84663) - https://sketch.com -->
+    <title>ei-chevron-down</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Symbols" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Buttons/Icons/Downvote/Active" transform="translate(-7.000000, -10.000000)" fill-rule="nonzero">
+            <g id="ei-chevron-down">
+                <g id="Icon" fill="#000000">
+                    <polygon id="Icon-Path" points="12.5 16.2 7.65 11.35 8.35 10.65 12.5 14.8 16.65 10.65 17.35 11.35"></polygon>
+                </g>
+                <rect id="ViewBox" x="0" y="0" width="25" height="25"></rect>
+            </g>
+        </g>
+    </g>
+</svg>

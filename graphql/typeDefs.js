@@ -195,7 +195,6 @@ export const typeDefs = /* GraphQL */ `
     content: String!
     parentId: ID
     categoryId: ID
-    accountId: ID!
   }
   input PostFilter {
     AND: [PostFilter]
@@ -216,10 +215,10 @@ export const typeDefs = /* GraphQL */ `
 
   type Query {
     # DATA FETCHING
-    allPosts(filter: PostFilter, first: Int, skip: Int): [Post]!
-    allCategories(filter: CategoryFilter, first: Int, skip: Int): [Category]!
-    allAccounts(filter: AccountFilter, first: Int, skip: Int): [Account]!
-    allTransactions(filter: TransactionFilter): [Transaction]!
+    allPosts(filter: PostFilter, first: Int, skip: Int): [Post!]!
+    allCategories(filter: CategoryFilter, first: Int, skip: Int): [Category!]!
+    allAccounts(filter: AccountFilter, first: Int, skip: Int): [Account!]!
+    allTransactions(filter: TransactionFilter): [Transaction!]!
     account(id: ID!): Account
     category(id: ID!): Category
     auth: Auth!

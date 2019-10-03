@@ -2,8 +2,9 @@
 <template lang="pug">
 div.post-list
   .post-list__heading
-    xText(h1) Top Posts
-    xBtn(flat) Create Post
+    xText(h1) {{ title }}
+    xBtn(flat @click="formIsVisible = true") Create Post
+  PostForm(v-if="formIsVisible")
   div(v-for="post in posts").post-list__posts
     PostListItem(:post="post")
 </template>
@@ -14,9 +15,17 @@ import gql from 'graphql-tag'
 import { QUERY_POSTS } from '~/client-graphql'
 
 export default {
+  data: _ => ({
+    formIsVisible: false
+  }),
   props: {
     posts: {
       required: true
+    },
+    title: {
+      default () {
+        return 'Top Posts'
+      }
     }
   }
 }
@@ -38,8 +47,9 @@ export default {
   margin-top: 30px;
 
   &__heading {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-gap: 30px;
   }
 
   &__posts {

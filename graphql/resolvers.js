@@ -29,9 +29,18 @@ export const resolvers = {
   },
   Account: {
     async profile(root, args, context, info) {
-      return await Profile.find({
+      console.log(root)
+      const profile = await Profile.find({
         id: root.profileId
       })
+      console.log(profile)
+      if (!profile) return {
+        id: "FAKE_PROFILE_" + Math.random(),
+        username: 'anon 🎭',
+        displayName: 'anonymous user', 
+        avatarImage: null
+      }
+      return profile
     },
     async permissions(root, args, context, info) {
       return await Permission.find({
@@ -99,9 +108,7 @@ export const resolvers = {
       return votes
     },
     async account(root, args, context, info) {
-      if (!root.accountId) {
-        return null
-      }
+      if (!root.accountId) return null;
       const account = await Account.find({
         id: root.accountId
       })
@@ -306,17 +313,19 @@ export const resolvers = {
     async createOrUpdateVote(
       root,
       {
-        vote: { id, intent, postId }
+        vote: { intent, postId }
       }
     ) {
+      const userAccount = await resolvers.Auth.account(...arguments)
+      if (!userAccount) throw new Error('must be signed in to vote')
       const voteDraft = {
-        id,
         intent,
-        postId
+        postId,
+        accountId: userAccount.id
       }
       const [post] = await Post.findAll({ filter: { id: postId } })
-      const [postAccount] = await Account.findAll({
-        filter: { id: post.accountId }
+      const postAccount = await Account.find({
+        id: post.accountId
       })
       const voteCost = Vote.app.arweave.ar.arToWinston(process.env.voteCostInAr)
       const txOptions = process.env.isDevelopment
@@ -333,7 +342,9 @@ export const resolvers = {
       return await Vote.toTransaction(voteDraft, txOptions)
     },
     async createOrUpdatePost(root, { post }, context, info) {
-      return await Post.toTransaction(post)
+      const account = await resolvers.Auth.account(...arguments);
+      if (!account) throw new Error('must be logged in to create or update post')
+      return await Post.toTransaction({ ...post, accountId: account.id })
     },
     async createOrUpdateImage(root, { image }, context, info) {
       return await Image.toTransaction(image)

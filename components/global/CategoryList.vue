@@ -70,6 +70,12 @@ export default {
     font-size: 20px;
     color: #fafafa;
     letter-spacing: 0;
+    cursor: pointer;
+    // min-width: 300px;
+    transition: all 400ms ease;
+    &:hover {
+      filter: invert(100%);
+    }
   }
 }
 </style>

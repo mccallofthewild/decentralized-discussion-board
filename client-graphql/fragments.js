@@ -25,6 +25,18 @@ export const FRAGMENT_ACCOUNT = gql`
   }
   ${print(FRAGMENT_PROFILE)}
 `
+
+export const FRAGMENT_VOTE = gql`
+fragment vote on Vote {
+  id
+  intent
+  account {
+    ...account
+  }
+}
+${FRAGMENT_ACCOUNT}
+`
+
 export const FRAGMENT_POST = gql`
   fragment post on Post {
     id
@@ -40,11 +52,11 @@ export const FRAGMENT_POST = gql`
       title
     }
     votes {
-      id
-      intent
+      ...vote
     }
   }
   ${FRAGMENT_ACCOUNT}
+  ${FRAGMENT_VOTE}
 `
 
 export const FRAGMENT_TRANSACTION = gql`

@@ -75,7 +75,7 @@ export default {
       } = await this.$apollo.mutate({
         mutation: MUTATION_POST,
         variables: {
-          post: { ...this.newPost, accountId: this.auth.account.id }
+          post: { ...this.newPost }
         },
         refetchQueries: [{ query: QUERY_POSTS }]
       })

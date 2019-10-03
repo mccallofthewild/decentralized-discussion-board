@@ -15,6 +15,7 @@ export default {
 .logo-container {
   &__logo {
     height: 28.2px;
+    cursor: pointer;
   }
 }
 </style>

@@ -1,33 +1,47 @@
 
 <template lang="pug">
   div(v-if="post").post
+    div.post__votes
+      xIcon(
+        icon="chevron-up" 
+        button 
+        :active="userVoteIntent == 'UP'" 
+        @click.native="vote(true)"
+      ).post__vote
+      xIcon(
+        icon="chevron-down" 
+        button 
+        :active="userVoteIntent == 'DOWN'" 
+        @click.native="vote(false)"
+      ).post__vote
     Avatar(:avatarImage="post.account.profile.avatarImage").post__avatar
     div.post__data
       xText(h2) {{ post.title }} 
-      small @{{ post.account.profile.username }}
+      div.post__data__labels
+        xText(title) {{ post.account.profile.displayName }}
+        xText(title light).post-label {{ timeago.format(post.createdAt) }}
+        xText(title light).post-label {{ voteSum.UP }} upvotes
+        //- xText(link title="real link").post-label facebook.com
       div(v-if="post.category")
-        nuxt-link(:to="{ name: 'categories-categoryId', params: { categoryId: post.category.id } }")
-          em {{ '#' + post.category.title}}
-      div Created {{ timeago.format(post.createdAt) }}
-      div(v-if="post.createdAt != post.updatedAt") {{ timeago.format(post.updatedAt) }}
-      p(style="white-space: pre;") {{ post.content }}
-      span(style="display: flex; align-items: center;")
-        button(:disabled="!auth || !auth.account || ownedByUser" title="upvote" @click="vote(true)") 🔼
-        | {{ voteSum.UP - voteSum.DOWN }}
-        button(:disabled="!auth || !auth.account || ownedByUser" title="downvote" @click="vote(false)") 🔽
-        button(v-if="ownedByUser" title="reply") ↩️
-        button(v-if="ownedByUser" title="edit") ✍️
-        //- button(title="delete") 🗑
-        button(title="history" @click="$router.push({name: 'posts-postId-history', params: { postId: post.id } })") 📜
-      br
-      br
+        //- nuxt-link(:to="{ name: 'categories-categoryId', params: { categoryId: post.category.id } }")
+        //-   em {{ '#' + post.category.title}}
+      //- p(style="white-space: pre;") {{ post.content }}
+      //- span(style="display: flex; align-items: center;")
+      //-   button(:disabled="!auth || !auth.account || ownedByUser" title="upvote" @click="vote(true)") 🔼
+      //-   | {{ voteSum.UP - voteSum.DOWN }}
+      //-   button(:disabled="!auth || !auth.account || ownedByUser" title="downvote" @click="vote(false)") 🔽
+      //-   button(v-if="ownedByUser" title="reply") ↩️
+      //-   button(v-if="ownedByUser" title="edit") ✍️
+      //-   //- button(title="delete") 🗑
+      //-   button(title="history" @click="$router.push({name: 'posts-postId-history', params: { postId: post.id } })") 📜
+
 </template>
  
 <script>
 import gql from 'graphql-tag'
-import { QUERY_POSTS, QUERY_AUTH } from '../../client-graphql'
-import timeago from 'timeago.js';
-
+import { QUERY_POSTS, QUERY_AUTH, MUTATION_VOTE } from '../../client-graphql'
+import * as timeago from 'timeago.js';
+console.log(timeago)
 export default {
   props: ['post'],
   data: _ => ({
@@ -53,43 +67,40 @@ export default {
         },
         { UP: 0, DOWN: 0 }
       )
+    },
+    userVoteIntent () {
+      return this.post.votes.reduce(
+        (prev, vote) => {
+          const isUserVote = vote && vote.account 
+            && (        
+              this.auth &&
+              this.auth.account &&
+              this.post &&
+              this.auth.account.id == vote.account.id
+            )
+          if (isUserVote) return vote.intent
+          return prev
+        },
+        null
+      )
     }
   },
   methods: {
     async vote(up) {
+      if (this.ownedByUser) return;
+      console.log('voting')
       const voteIntent = up ? 'UP' : 'DOWN'
       const {
-        data: { vote }
+        data,
+        errors = []
       } = await this.$apollo.mutate({
-        mutation: gql`
-          mutation createVote($vote: VoteInput!) {
-            vote: createVote(vote: $vote) {
-              id
-              intent
-            }
-          }
-        `,
+        mutation: MUTATION_VOTE,
         variables: {
           vote: { intent: voteIntent, postId: this.post.id }
         },
-        update: (store, { data: { vote } }) => {
-          // Read the data from our cache for this query.
-          const data = store.readQuery({ query: QUERY_POSTS })
-          // Add our tag from the mutation to the end
-          const post = data.allPosts.find(post => post.id == this.post.id)
-          post.votes.push(vote)
-          // Write our data back to the cache.
-          store.writeQuery({ query: QUERY_POSTS, data })
-        },
-        optimisticResponse: {
-          __typename: 'Mutation',
-          vote: {
-            __typename: 'Vote',
-            id: -1,
-            intent: voteIntent
-          }
-        }
+        refetchQueries: [{ query: QUERY_POSTS }]
       })
+      errors.forEach(e => alert(e.message))
     }
   }
 }
@@ -99,12 +110,32 @@ export default {
 <style lang="stylus" scoped>
 .post {
   display: flex;
-  
+  // icon size - avatar margin
+  margin-left: -25px - 15px;
+  &__votes {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 59px;
+    .post__vote {
+      &[active] {
+        opacity: 0.25;
+      }
+    }
+  }
   &__avatar {
     margin-top: 5px;
+    margin-left: 15px;
   }  
   &__data {
     margin-left: 30px;
+    &__labels {
+      display: flex;
+      margin-top: 10px;
+      .post-label {
+        margin-left: 10px;
+      }
+    }
   }
 }
 button:disabled {
