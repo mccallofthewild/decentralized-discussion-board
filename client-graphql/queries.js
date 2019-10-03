@@ -29,6 +29,9 @@ export const QUERY_POSTS = gql`
   query AllPosts($filter: PostFilter) {
     allPosts(filter: $filter) {
       ...post
+      versions {
+        ...post
+      }
     }
   }
   ${print(FRAGMENT_POST)}

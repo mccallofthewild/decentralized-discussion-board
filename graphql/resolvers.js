@@ -176,7 +176,9 @@ export const resolvers = {
         }, new Set(accounts.map(a => a.id)))
       ]
 
-      return uniqueIds.map(id => accounts.find(a => a.id == id))
+      return uniqueIds
+        .map(id => accounts.find(a => a.id == id))
+        .filter(r => !!r)
     },
     async account(root, args, context, info) {
       const activeAccountId = window.localStorage.getItem(

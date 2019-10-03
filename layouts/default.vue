@@ -5,6 +5,7 @@ div.app-container
   main(
     @scroll="monitorScroll"
   )
+    button(v-if="$route.path != '/'" @click="$router.back()") ⏪ Back
     nuxt
 
 

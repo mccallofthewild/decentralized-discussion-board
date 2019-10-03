@@ -6,6 +6,8 @@
     div(v-if="post.category")
       nuxt-link(:to="{ name: 'categories-categoryId', params: { categoryId: post.category.id } }")
         em {{ '#' + post.category.title}}
+    div Created {{ new Date(post.createdAt).toLocaleDateString() }} {{ new Date(post.createdAt).toLocaleTimeString() }}
+    div(v-if="post.createdAt != post.updatedAt") Updated {{ new Date(post.updatedAt).toLocaleDateString() }} {{ new Date(post.updatedAt).toLocaleTimeString() }}
     p(style="white-space: pre;") {{ post.content }}
     span(style="display: flex; align-items: center;")
       button(:disabled="!auth || !auth.account || ownedByUser" title="upvote" @click="vote(true)") 🔼
@@ -14,7 +16,7 @@
       button(v-if="ownedByUser" title="reply") ↩️
       button(v-if="ownedByUser" title="edit") ✍️
       //- button(title="delete") 🗑
-      button(title="history") 📜
+      button(title="history" @click="$router.push({name: 'posts-postId-history', params: { postId: post.id } })") 📜
     br
     br
 </template>

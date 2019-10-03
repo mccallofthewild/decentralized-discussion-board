@@ -18,8 +18,8 @@ export class PersistedCache extends LoomCache {
       'PersistedCache'
     )
     super()
-    // expire a record after one day
-    this.millisecondsUntilExpiration = 24 * 60 * 60 * 1000
+    // expire a record after one hour
+    this.millisecondsUntilExpiration = 1 * 60 * 60 * 1000
     this.storageNamespace = storageNamespace
     this.entryFromJSON = entryFromJSON || (r => r)
     this.recordTimestamps = new Map()

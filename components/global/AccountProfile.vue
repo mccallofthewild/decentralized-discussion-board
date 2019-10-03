@@ -1,6 +1,7 @@
 
 <template lang="pug">
-div 
+div(v-if="!$apollo.queries.auth.loading && accountData")
+  h1 {{ !isEditing ? 'Account' : !accountData.id ? 'Create Account' : 'Update Account' }}
   form(@submit.prevent="save").profile
     Avatar(
       :avatar-image="accountData.profile.avatarImage"
@@ -177,12 +178,12 @@ export default {
           }
         })
         avatarImageId = imageId
-        console.log(`\n\n\n SAVED IMAGE \n\n\n`)
+        console.log(`\n\n\n SAVED IMAGE \n\n\n ${avatarImageId}`)
       }
 
-      return console.log(
-        '\n\n\n\nRETURNING BC I ONLY CARE ABOUT IMAGES RN\n\n\n\n'
-      )
+      // return console.log(
+      //   '\n\n\n\nRETURNING BC I ONLY CARE ABOUT IMAGES RN\n\n\n\n'
+      // )
 
       let profileId = profile.id
       if (avatarImageChanged || profileChanged) {
@@ -209,7 +210,7 @@ export default {
         (!this.snapshot.profile || profileId != this.snapshot.profile.id)
       ) {
         const {
-          data: { account: accountData } = {}
+          data: { account: savedAccount } = {}
         } = await this.$apollo.mutate({
           mutation: MUTATION_ACCOUNT,
           variables: {
@@ -220,12 +221,10 @@ export default {
           }
         })
 
-        finalAccountId = accountData ? accountId : null
+        finalAccountId = savedAccount ? savedAccount.id : null
         console.log('updated account')
       }
-      const {
-        data: { id: completed }
-      } = await this.$apollo.mutate({
+      const { data: completed } = await this.$apollo.mutate({
         mutation: MUTATION_AUTH_ACCOUNT,
         variables: {
           accountId: finalAccountId
@@ -289,6 +288,14 @@ export default {
     border: none;
     background: transparent;
     font-size: inherit;
+    width: 96%;
+
+    &:not([readonly]) {
+      background: rgba(black, 0.05);
+      box-shadow: 0px 1px 5px rgba(black, 0.3) inset;
+      margin: 5px;
+      padding: 5px;
+    }
   }
 
   .profile__image {

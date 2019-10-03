@@ -287,13 +287,13 @@ export class LoomModel {
     // }
     await this.validateRecord(record)
 
-    // set optimistic record before, so the actual record will be newer
+    // only add to cache if it's successful (don't add the transaction because it's only needed when we load all of them)
     this.optimisticRecordCache.set(record.id, record)
+    // set optimistic record timestamp to before, so the actual record will be newer
     this.optimisticRecordCache.recordTimestamps.set(record.id, cacheTimestamp)
 
     switch (res.status) {
       case 200: {
-        // only add to cache if it's successful (don't add the transaction because it's only needed when we load all of them)
         return record
       }
       default: {
@@ -425,7 +425,7 @@ export class LoomModel {
         return prev
       }, {})
     )
-    const versionedRecords = uniqueRecords.map(r => {
+    const versionedRecords = uniqueRecords.map(({ ...r }) => {
       r.versions = sortedRecords.filter(v => v.id == r.id)
       return r
     })

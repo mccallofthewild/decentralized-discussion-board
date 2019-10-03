@@ -53,6 +53,7 @@ export default {
     async createCategory() {
       const title = prompt('Category Title')
       const description = prompt('Category Description')
+      if (!title || !description) return
       const {
         data: { category }
       } = await this.$apollo.mutate({

@@ -8,6 +8,7 @@
     "dev": "nuxt --spa",
     "build": "nuxt build",
     "deploy": "arweave deploy dist/index.html --package",
+    "package": "arweave package dist/index.html dist/packaged.html",
     "start": "nuxt start",
     "generate": "nuxt generate --spa",
     "test": "jest"
@@ -42,8 +43,11 @@
   "devDependencies": {
     "@vue/test-utils": "^1.0.0-beta.27",
     "babel-jest": "^24.1.0",
+    "babel-plugin-dynamic-import-node": "^2.3.0",
     "eslint-config-prettier": "^4.1.0",
     "eslint-plugin-prettier": "^3.0.1",
+    "html-webpack-inline-source-plugin": "^0.0.10",
+    "html-webpack-plugin": "^3.2.0",
     "jest": "^24.1.0",
     "prettier": "^1.16.4",
     "pug-plain-loader": "^1.0.0",

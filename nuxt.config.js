@@ -1,3 +1,6 @@
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+var HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin')
+import webpack from 'webpack'
 const isNotProduction = process.env.NODE_ENV !== 'production'
 export default {
   mode: 'spa',
@@ -47,14 +50,33 @@ export default {
   styleResources: {
     stylus: ['~assets/styles/variables.styl']
   },
+
+  render: {
+    resourceHints: false
+  },
   /*
    ** Build configuration
    */
   build: {
+    minimize: true,
+    splitChunks: {
+      name: false
+    },
+    plugins: [],
     /*
      ** You can extend webpack config here
      */
-    extend(config, ctx) {}
+    extend(config, ctx) {
+      config.plugins.push(
+        new webpack.optimize.LimitChunkCountPlugin({
+          maxChunks: 1
+        }),
+        new HtmlWebpackPlugin({
+          inlineSource: '.(js|css)$' // embed all javascript and css inline
+        }),
+        new HtmlWebpackInlineSourcePlugin()
+      )
+    }
   },
 
   env: {

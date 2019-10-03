@@ -3,19 +3,19 @@
     div
       Logo
       //- :paused="!$store.state.ui.loading"
-      Lottie(
-        lottie-file="https://assets2.lottiefiles.com/temp/lf20_IxpQni.json" 
-        width="100%" 
-        height="auto"
-        :paused="true"
-        :seek="scrollProgress"
-      ).lottie
+
       div(v-if='!auth || $apollo.queries.auth.loading')
         //- Scanning Thumbprint https://assets7.lottiefiles.com/temp/lf20_lruRTf.json
         //- Person Driving Scooter (Really Good) https://assets2.lottiefiles.com/temp/lf20_IxpQni.json
         //- Swirly Infinity https://assets1.lottiefiles.com/packages/lf20_frdtxW.json
         //- Digital Human Scanning https://assets2.lottiefiles.com/temp/lf20_HXh4T7.json
-        
+          :seek="scrollProgress"
+        Lottie(
+          lottie-file="https://assets2.lottiefiles.com/temp/lf20_HXh4T7.json" 
+          width="100%" 
+          height="auto"
+          :paused="false"
+        ).lottie
       div(v-else)
         div(v-if="auth && auth.wallet")
           div(v-if="auth.account")
@@ -29,7 +29,7 @@
           p 💰{{ auth.balance }} AR
         nuxt-link(tag="button" v-else='' to='/login') Login / Signup
 
-    //- | created by McCall Alexander
+    | created by McCall Alexander
 </template>
 
 <script>

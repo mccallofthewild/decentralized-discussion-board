@@ -1,7 +1,7 @@
 
 <template lang="pug">
 div
-  div(v-if="auth && auth.accounts")
+  div(v-if="false && auth && auth.accounts")
     h1 Select Account
     div(
       style=`
@@ -12,6 +12,7 @@ div
       border-top: 1px solid black;
       width: 300px;
       `
+      v-if="auth.accounts"
       v-for="account in auth.accounts" 
       :key="account.id" 
       @click="setAccount(account.id)"
@@ -24,7 +25,7 @@ div
         p {{ account.profile.description }}
     div 
       button(
-        @click=""
+        @click="$router.push({name: 'accounts-create'})"
       ) Add Account
   Lottie(v-else height="100vh" width="60vw")
 </template>
@@ -33,6 +34,9 @@ div
 <script>
 import { QUERY_AUTH, MUTATION_AUTH_ACCOUNT } from '../../client-graphql'
 export default {
+  data: _ => ({
+    accounts: []
+  }),
   apollo: {
     auth: QUERY_AUTH
   },
