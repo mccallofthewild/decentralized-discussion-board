@@ -51,32 +51,32 @@ export default {
     stylus: ['~assets/styles/variables.styl']
   },
 
-  render: {
-    resourceHints: false
-  },
+  // render: {
+  //   resourceHints: false
+  // },
   /*
    ** Build configuration
    */
   build: {
-    minimize: true,
-    splitChunks: {
-      name: false
-    },
-    plugins: [],
+    // minimize: true,
+    // splitChunks: {
+    //   name: false
+    // },
+    // plugins: [],
     /*
      ** You can extend webpack config here
      */
-    extend(config, ctx) {
-      config.plugins.push(
-        new webpack.optimize.LimitChunkCountPlugin({
-          maxChunks: 1
-        }),
-        new HtmlWebpackPlugin({
-          inlineSource: '.(js|css)$' // embed all javascript and css inline
-        }),
-        new HtmlWebpackInlineSourcePlugin()
-      )
-    }
+    // extend(config, ctx) {
+    //   config.plugins.push(
+    //     new webpack.optimize.LimitChunkCountPlugin({
+    //       maxChunks: 1
+    //     }),
+    //     new HtmlWebpackPlugin({
+    //       inlineSource: '.(js|css)$' // embed all javascript and css inline
+    //     }),
+    //     new HtmlWebpackInlineSourcePlugin()
+    //   )
+    // }
   },
 
   env: {

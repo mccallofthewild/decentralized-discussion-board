@@ -97,6 +97,21 @@
         align-items: center;
         height: 100vh;
       }
+      iframe {
+        opacity: 0;
+      }
+      iframe[loaded='true'] {
+        opacity: 1;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border: none;
+        background: white;
+        height: 100vh;
+        width: 100vw;
+      }
     </style>
   </head>
   <body>
@@ -113,7 +128,7 @@
     <script>
       var iframe = document.createElement('iframe')
       iframe.onload = function() {
-        alert('myframe is loaded')
+        iframe.setAttribute('loaded', 'true')
       } // before setting 'src'
       iframe.src = 'https://decentralized-discussion-board.netlify.com/'
       document.body.appendChild(iframe) // add it to wherever you need it in the document
