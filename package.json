@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nuxt --spa",
     "build": "nuxt build",
-    "deploy": "arweave deploy dist/index.html --package",
+    "deploy": "arweave deploy _dist/index.html --package",
     "package": "arweave package dist/index.html dist/packaged.html",
     "start": "nuxt start",
     "generate": "nuxt generate --spa",
