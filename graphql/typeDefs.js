@@ -221,7 +221,7 @@ export const typeDefs = /* GraphQL */ `
     allAccounts(filter: AccountFilter, first: Int, skip: Int): [Account]!
     allTransactions(filter: TransactionFilter): [Transaction]!
     account(id: ID!): Account
-
+    category(id: ID!): Category
     auth: Auth!
   }
   type Mutation {

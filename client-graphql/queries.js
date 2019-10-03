@@ -26,8 +26,8 @@ export const QUERY_AUTH = gql`
 `
 
 export const QUERY_POSTS = gql`
-  query {
-    allPosts {
+  query AllPosts($filter: PostFilter) {
+    allPosts(filter: $filter) {
       ...post
     }
   }
@@ -59,6 +59,15 @@ export const QUERY_CATEGORIES = gql`
       children {
         ...category
       }
+    }
+  }
+  ${print(FRAGMENT_CATEGORY)}
+`
+
+export const QUERY_CATEGORY = gql`
+  query GetCategory($id: ID!) {
+    category(id: $id) {
+      ...category
     }
   }
   ${print(FRAGMENT_CATEGORY)}

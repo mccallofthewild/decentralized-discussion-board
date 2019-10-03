@@ -1,8 +1,10 @@
 <template lang="pug">
 div.app-container
   header 
-    NavSidebar
-  main
+    NavSidebar(:scrollProgress="scrollProgress")
+  main(
+    @scroll="monitorScroll"
+  )
     nuxt
 
 
@@ -11,8 +13,39 @@ div.app-container
 <script>
 import gql from 'graphql-tag'
 import { QUERY_AUTH } from '../client-graphql'
+import { monitorXHR } from '../utils'
 
 export default {
+  data: _ => ({
+    scrollProgress: 0
+  }),
+  mounted() {
+    this.monitorXHR()
+  },
+  methods: {
+    monitorXHR() {
+      let loading = 0
+      monitorXHR({
+        onRequestStart: (method, url) => {
+          if (!url.includes('/arql')) return
+          if (loading == 0) this.$store.commit('ui/setLoading', true)
+          loading++
+        },
+        onRequestEnd: (method, url) => {
+          if (!url.includes('/arql')) return
+          loading--
+          if (loading == 0) this.$store.commit('ui/setLoading', false)
+        }
+      })
+    },
+    monitorScroll(e) {
+      // debugger
+      this.scrollProgress =
+        (Math.round((e.target.scrollTop / e.target.scrollHeight) * 500) % 100) +
+        '%'
+    }
+  },
+
   apollo: {
     auth: {
       query: QUERY_AUTH,
@@ -22,8 +55,7 @@ export default {
         }
       }
     }
-  },
-  methods: {}
+  }
 }
 </script>
 
@@ -38,6 +70,7 @@ export default {
   grid-template-columns: navWidth 100vw - navWidth;
   height: 100vh;
   width: 100%;
+  overflow: hidden;
   grid-auto-flow: column;
 }
 
@@ -54,9 +87,16 @@ html {
   /* text-transform: lowercase !important; */
 }
 
+header {
+  max-height: 100vh;
+  overflow: hidden;
+}
+
 main {
   display: block;
-  margin: __spacing.area;
+  padding: __spacing.area;
+  overflow-y: scroll;
+  height: 100vh;
 }
 
 *:focus {

@@ -7,12 +7,28 @@ import VueApollo from 'vue-apollo'
 
 Vue.use(VueApollo)
 
+const defaultOptions = {
+  watchQuery: {
+    fetchPolicy: 'network-only',
+    errorPolicy: 'all'
+  },
+  query: {
+    fetchPolicy: 'network-only',
+    errorPolicy: 'all'
+  },
+  mutate: {
+    fetchPolicy: 'no-cache',
+    errorPolicy: 'all'
+  }
+}
+
 // Create the apollo client
 const apolloClient = new ApolloClient({
   // from https://medium.com/front-end-weekly/implementing-graphql-api-in-the-browser-9fc8dec68a5d
   // and (better) https://blog.hasura.io/client-side-graphql-schema-resolving-and-schema-stitching-f4d8bccc42d2/
   link: new SchemaLink({ schema }),
-  cache: new InMemoryCache()
+  cache: new InMemoryCache(),
+  defaultOptions
 })
 
 export default ({ app, ...context }, inject) => {

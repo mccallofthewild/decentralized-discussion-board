@@ -21,9 +21,6 @@ export const FRAGMENT_ACCOUNT = gql`
     primaryAddress
     profile {
       ...profile
-      versions {
-        ...profile
-      }
     }
   }
   ${print(FRAGMENT_PROFILE)}
@@ -38,12 +35,9 @@ export const FRAGMENT_POST = gql`
     account {
       ...account
     }
-    versions {
+    category {
       id
       title
-      content
-      createdAt
-      updatedAt
     }
     votes {
       id

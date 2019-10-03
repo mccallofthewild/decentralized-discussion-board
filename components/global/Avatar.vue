@@ -51,6 +51,7 @@ sizes ?= {
   background-repeat: no-repeat;
   box-shadow: 0px 5px 10px -8px rgba(black, 0.5);
   margin: 10px;
+  transition: all 1s ease;
 
   &[small] {
     padding: (sizes.small / 2px);

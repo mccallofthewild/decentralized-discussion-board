@@ -1,17 +1,18 @@
 
 <template lang="pug">
-  div
+  div(v-if="post")
     h2 {{ post.title }} 
     small @{{ post.account.profile.username }}
-    div 
-      em #category
+    div(v-if="post.category")
+      nuxt-link(:to="{ name: 'categories-categoryId', params: { categoryId: post.category.id } }")
+        em {{ '#' + post.category.title}}
     p(style="white-space: pre;") {{ post.content }}
     span(style="display: flex; align-items: center;")
-      button(title="upvote" @click="vote(true)") 🔼
+      button(:disabled="!auth || !auth.account || ownedByUser" title="upvote" @click="vote(true)") 🔼
       | {{ voteSum.UP - voteSum.DOWN }}
-      button(title="downvote" @click="vote(false)") 🔽
-      button(title="reply") ↩️
-      button(title="edit") ✍️
+      button(:disabled="!auth || !auth.account || ownedByUser" title="downvote" @click="vote(false)") 🔽
+      button(v-if="ownedByUser" title="reply") ↩️
+      button(v-if="ownedByUser" title="edit") ✍️
       //- button(title="delete") 🗑
       button(title="history") 📜
     br
@@ -20,10 +21,21 @@
 
 <script>
 import gql from 'graphql-tag'
-import { QUERY_POSTS } from '../../client-graphql'
+import { QUERY_POSTS, QUERY_AUTH } from '../../client-graphql'
 export default {
   props: ['post'],
+  apollo: {
+    auth: QUERY_AUTH
+  },
   computed: {
+    ownedByUser() {
+      return (
+        this.auth &&
+        this.auth.account &&
+        this.post &&
+        this.auth.account.id == this.post.account.id
+      )
+    },
     voteSum() {
       return this.post.votes.reduce(
         (prev, vote) => {
@@ -75,5 +87,9 @@ export default {
 </script>
 
 
-<style lang="scss">
+<style lang="stylus" scoped>
+button:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.5;
+}
 </style>

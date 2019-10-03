@@ -9,19 +9,21 @@ export class LoomCache {
       MUTATION: 'MUTATION'
     }
   }
-  get(...args) {
-    return this.memory.get(...args)
+  get(key) {
+    return this.memory.get(key)
   }
   set(key, value) {
+    const rtn = this.memory.set(key, value)
     this.emitter.emit(LoomCache.Events.MUTATION, [key, value])
-    return this.memory.set(key, value)
+    return rtn
   }
   delete(key) {
+    const rtn = this.memory.delete(key)
     this.emitter.emit(LoomCache.Events.MUTATION, [key])
-    return this.memory.delete(key)
+    return rtn
   }
   entries() {
-    return [...this.memory]
+    return [...this.memory.entries()]
   }
   static fromJSON(jsonString) {
     return new this(JSON.parse(jsonString))

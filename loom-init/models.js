@@ -5,7 +5,6 @@ import { formatUsername } from '../utils/usernameValidation'
 export const Post = loomApp.createModel({
   name: 'Post',
   timestamps: true,
-  versions: true,
   props: {
     accountId: {
       required: true,
@@ -111,7 +110,6 @@ export const Vote = loomApp.createModel({
 export const Account = loomApp.createModel({
   name: 'Account',
   timestamps: true,
-  versions: true,
   async reducer(recordVersions) {
     return Account.defaultReducer(recordVersions)
     const authorized = await removeUnauthorizedRecords(recordVersions)
@@ -153,7 +151,6 @@ export const Permission = loomApp.createModel({
   name: 'Permission',
   immutable: true,
   timestamps: true,
-  versions: false,
   async validator(record) {
     console.log(
       '\n\n\n\n\nmay cause infinite loop due to Permission and Account validators referencing each other recursively\n\n\n\n'
@@ -231,7 +228,6 @@ export const Image = loomApp.createModel({
   name: 'Image',
   immutable: true,
   timestamps: true,
-  versions: false,
   props: {
     alt: {
       required: false
@@ -250,7 +246,6 @@ export const Profile = loomApp.createModel({
   name: 'Profile',
   immutable: false,
   timestamps: true,
-  versions: true,
   validator(record) {
     const u = record.username
     if (u !== formatUsername(u, { end: true })) {

@@ -26,7 +26,7 @@ div
       button(
         @click=""
       ) Add Account
-  Loading(v-else height="100vh" width="60vw")
+  Lottie(v-else height="100vh" width="60vw")
 </template>
 
 
@@ -47,7 +47,7 @@ export default {
         }
       })
       alert('set account!')
-      this.$router.push({ name: 'user-accountId', params: { accountId: id } })
+      this.$router.push({ name: 'users-accountId', params: { accountId: id } })
     }
   }
 }

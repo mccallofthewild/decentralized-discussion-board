@@ -39,18 +39,21 @@ export const resolvers = {
       })
     },
     async addresses(root, args, context, info) {
-      const accountWithVersions = await Account.find({ id: root.id })
+      const accountWithVersions = await Account.find(
+        { id: root.id },
+        { withVersions: true }
+      )
       const permissions = await Permission.findAll({
         filter: {
           accountId: root.id
         }
       })
       const addresses = new Set()
+      const firstAccountRecord =
+        accountWithVersions.versions[0] || accountWithVersions
       // first authenticated wallet is automatically authorized
       addresses.add(
-        loomApp.arweave.wallets.ownerToAddress(
-          accountWithVersions.versions[0].__tx.owner
-        )
+        loomApp.arweave.wallets.ownerToAddress(firstAccountRecord.__tx.owner)
       )
       for (let p of permissions) {
         p.status == 'ENABLED'
@@ -83,9 +86,10 @@ export const resolvers = {
     },
     async children(root, args, context, info) {
       const result = await Category.findAll({
-        parentId: root.id
+        filter: {
+          parentId: root.id
+        }
       })
-      console.log('CHILD CATEGORIES RESULT', result)
       return result
     }
   },
@@ -95,45 +99,93 @@ export const resolvers = {
       return votes
     },
     async account(root, args, context, info) {
-      return await Account.find({
+      if (!root.accountId) {
+        return null
+      }
+      const account = await Account.find({
         id: root.accountId
       })
+      if (account && account.id != root.accountId)
+        console.log('ACCOUNT DOES NOT MATCH')
+      return account
     },
     async parent(root, args, context, info) {
+      if (!root.parentId) return null
       return await Post.find({
         id: root.parentId
       })
     },
     async category(root, args, context, info) {
+      if (!root.categoryId) return null
       return await Category.find({
         id: root.categoryId
       })
+    },
+    async versions(root, args, context, info) {
+      const post = await Post.find(
+        {
+          id: root.id
+        },
+        {
+          withVersions: true
+        }
+      )
+      if (!post) return []
+      const { versions } = post
+      return versions
     }
   },
   Auth: {
     async accounts(root, args, context, info) {
       const address = await resolvers.Auth.address(...arguments)
-      const accounts = await Account.findAll({
+      if (!address) return []
+      const permissions = await Permission.findAll({
         filter: {
-          from: address
+          OR: [
+            {
+              from: address
+            },
+            {
+              address: address
+            }
+          ]
         }
       })
-      return accounts
+
+      const accounts = await Account.findAll({
+        filter: {
+          OR: [
+            {
+              from: address
+            },
+            ...permissions
+              .filter(p => p.accountId)
+              .map(p => ({ id: p.accountId }))
+          ]
+        }
+      })
+
+      let uniqueIds = [
+        ...permissions.reduce((prev, permission) => {
+          if (permission.status == 'ENABLED') {
+            prev.add(permission.accountId)
+          } else {
+            prev.remove(permission.accountId)
+          }
+          return prev
+        }, new Set(accounts.map(a => a.id)))
+      ]
+
+      return uniqueIds.map(id => accounts.find(a => a.id == id))
     },
     async account(root, args, context, info) {
-      const accounts = await resolvers.Auth.accounts(...arguments)
       const activeAccountId = window.localStorage.getItem(
         process.env.storageKeys.auth.activeAccountId
       )
       if (!activeAccountId) return null
-      console.log('if error went away this is why')
-      // return null
       const account = await Account.find({
         id: activeAccountId
       })
-      console.log('resolvers/account', accounts)
-      const otherAccount = accounts.find(a => a.id == activeAccountId)
-      console.log('ACTIVE AUTH ACCOUNT', activeAccountId, account, otherAccount)
       return account
     },
     async wallet(root, args, context, info) {
@@ -176,7 +228,9 @@ export const resolvers = {
       context,
       info
     ) {
-      return await Category.findAll({ filter, first, skip })
+      const categories = await Category.findAll({ filter, first, skip })
+
+      return categories
     },
     async allAccounts(
       root,
@@ -190,6 +244,9 @@ export const resolvers = {
     },
     async account(root, { id }, context, info) {
       return await Account.find({ id })
+    },
+    async category(root, { id }, context, info) {
+      return await Category.find({ id })
     },
     async allTransactions(root, { filter }, context, info) {
       const formatTx = tx => {
@@ -211,6 +268,8 @@ export const resolvers = {
         const tx = await mockModel.loadTransactionById(filter.id)
         return [formatTx(tx)]
       }
+      // must search for something
+      if (!Object.values(filter).length) return []
       const query = mockModel.objToArql(filter)
       const txIds = await loomApp.arweave.arql(query)
       const txs = await Promise.all(
@@ -233,6 +292,7 @@ export const resolvers = {
       return {}
     },
     async setAuthAccount(root, { accountId }) {
+      console.log('SETTING ACCOUNT ID:::::', accountId)
       // does this wallet have permission to use this account?
       const account = await Account.find({ id: accountId })
       window.localStorage.setItem(

@@ -9,86 +9,21 @@ div
       xImageInput(
         name="profile-image"
         v-if="isEditing"
-        :process-jimp="jimp => jimp.cover(250,250)"
+        :process-jimp="jimp => jimp.cover(250,250).quality(1)"
         @data-uri="uri => accountDraft.profile.avatarImage.base64 = uri"
         @image-type="type => accountDraft.profile.avatarImage.fileType = type"
       ).profile__image__input--upload
         template(#activator="{ activate }") 
           div(@click="activate").input--upload__activator
             span Edit 
-    div(
-      style=`
-        width: 100%;
-        position: relative;
-      `
-    )
-      div(
-        style=`
-          width: 100%;
-          height: 100%;
-          position: absolute;
-          pointer-events: none;
-          top: 0;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          z-index: 2;
-          background-image: linear-gradient(to right, white, transparent, transparent, transparent, white);
-        `
-      )
-      div(
-        style=`
-          display: flex;
-          flex-direction: row;
-          width: 100%;
-          overflow-x: scroll;
-          align-items: center;
-          justify-content: flex-start;
-          padding: 10px;
-          border-radius: 200px;
-        `
-        @mouseover.once=`e => {
-            const width = e.target.scrollWidth / 3
-            e.target.scrollLeft = width;
-        }`
-          
-        @scroll=`e => {
-          const sectionWidth = e.target.scrollWidth / 3
-          const tooFarToRight = sectionWidth * 2 < e.target.scrollLeft
-          const tooFarToLeft = e.target.scrollLeft < sectionWidth;
-          if (tooFarToRight) {
-            e.target.scrollLeft = sectionWidth;
-          } else if (tooFarToLeft) {
-            e.target.scrollLeft = sectionWidth * 2
-          }
-        }`
-      )
-        Avatar(
-          v-for="avi in Array.from({ length: avatars.length * 3 }, (a, i) => avatars[i%avatars.length])"
-          :key="avi"
-          medium
-          style="margin: 5px;"
-          :avatar-image="{ base64: avi }"
-  
-        )
-          div(
-            style=`
-              height: 100%;
-              width: 100%;
-              position: absolute;
-              z-index: 2;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              cursor: pointer;
-            `
-            @click="accountDraft.profile.avatarImage.base64 = avi"
-          )
+    //- SelectLocalAvatar(
+    //-   v-if="isEditing"
+    //-   @selected="avi => accountDraft.profile.avatarImage.base64 = avi"
+    //- )
     h1 
       input(
         type="text" 
-        placeholder="Harry Potter" 
+        placeholder="Your Name" 
         required 
         :readonly="!isEditing" 
         v-model="accountData.profile.displayName"
@@ -97,7 +32,7 @@ div
       | @
       input(
         type="text" 
-        placeholder="daboiwholived" 
+        placeholder="yourusername" 
         ref="username" 
         required 
         :readonly="!isEditing" 
@@ -114,6 +49,7 @@ div
         option(v-for="address in addressOptions" :value="address") {{ address }}
     blockquote
       textarea(
+        placeholder="Write something about yourself..."
         type="text" 
         required 
         :readonly="!isEditing" 
@@ -131,15 +67,14 @@ div
 
 
 <script>
-import { avatars } from '~/assets/images/avatars'
-
 import defaultAvatar from '~/assets/images/default-avatar.svg'
 import gql from 'graphql-tag'
 import {
   QUERY_AUTH,
   MUTATION_ACCOUNT,
   MUTATION_IMAGE,
-  MUTATION_PROFILE
+  MUTATION_PROFILE,
+  MUTATION_AUTH_ACCOUNT
 } from '~/client-graphql'
 import {
   usernameRegex,
@@ -149,12 +84,13 @@ import {
 } from '~/utils'
 export default {
   props: ['account'],
-  mounted() {
+  beforeMount() {
     // if account not provided, prepare to create
-    if (!this.account) this.isEditing = true
+    if (!this.account) this.edit()
+    else this.assignAccountToDraft()
   },
+
   data: _ => ({
-    avatars,
     usernameRegex,
     auth: null,
     isEditing: false,
@@ -166,9 +102,9 @@ export default {
     accountDraft: {
       primaryAddress: '',
       profile: {
-        username: 'theboywholived',
-        displayName: 'Harry Potter',
-        biography: 'The wand chooses the wizard',
+        username: '',
+        displayName: '',
+        biography: '',
         avatarImage: {
           alt: '',
           base64: '',
@@ -179,20 +115,6 @@ export default {
   }),
   methods: {
     formatUsername,
-    formatAvatarPath(avatar) {
-      return avatar
-        .split('/')
-        .pop()
-        .replace('icons8-', '')
-        .replace('.svg', '')
-        .split('-')
-        .map(word => {
-          let [first, ...chars] = word
-          first = first.toUpperCase()
-          return [first, ...chars].join('')
-        })
-        .join(' ')
-    },
     edit() {
       this.assignAccountToDraft()
       this.isEditing = true
@@ -215,7 +137,7 @@ export default {
       }
     },
     assignAccountToDraft() {
-      const snapshot = this.takeSnapshot(this.account)
+      const snapshot = this.takeSnapshot(this.account || this.accountDraft)
       this.snapshot = JSON.parse(JSON.stringify(snapshot))
       this.accountDraft = {
         ...snapshot.account,
@@ -241,6 +163,7 @@ export default {
         avatarImage
       )
 
+      // images are immutable
       let avatarImageId = avatarImage.id
       if (avatarImageChanged) {
         const {
@@ -254,8 +177,12 @@ export default {
           }
         })
         avatarImageId = imageId
-        console.log('updated avatar image')
+        console.log(`\n\n\n SAVED IMAGE \n\n\n`)
       }
+
+      return console.log(
+        '\n\n\n\nRETURNING BC I ONLY CARE ABOUT IMAGES RN\n\n\n\n'
+      )
 
       let profileId = profile.id
       if (avatarImageChanged || profileChanged) {
@@ -265,7 +192,6 @@ export default {
           }
         } = await this.$apollo.mutate({
           mutation: MUTATION_PROFILE,
-          refetchQueries: [{ query: QUERY_AUTH }],
           variables: {
             profile: {
               ...profile,
@@ -276,14 +202,16 @@ export default {
         profileId = id
         console.log('updated profile')
       }
-      if (accountChanged) {
+      let finalAccountId
+      // debugger
+      if (
+        accountChanged ||
+        (!this.snapshot.profile || profileId != this.snapshot.profile.id)
+      ) {
         const {
-          data: {
-            account: { id: accountId }
-          }
+          data: { account: accountData } = {}
         } = await this.$apollo.mutate({
           mutation: MUTATION_ACCOUNT,
-          refetchQueries: [{ query: QUERY_AUTH }],
           variables: {
             account: {
               ...account,
@@ -291,37 +219,40 @@ export default {
             }
           }
         })
+
+        finalAccountId = accountData ? accountId : null
         console.log('updated account')
       }
-      this.isEditing = false
-      alert('saved')
+      const {
+        data: { id: completed }
+      } = await this.$apollo.mutate({
+        mutation: MUTATION_AUTH_ACCOUNT,
+        variables: {
+          accountId: finalAccountId
+        }
+      })
+
+      await this.$apollo.queries.auth.refetch()
+      this.isEditing = !!completed
+      // alert('saved')
+      console.log(`\n\n\n SAVED PROFILE \n\n\n`)
     }
   },
   apollo: {
     auth: {
-      query: QUERY_AUTH,
-      update({ auth }) {
-        this.auth = auth
-        // default the primaryAddress to the logged in address
-        if (
-          this.auth &&
-          this.auth.address &&
-          !this.accountData.primaryAddress
-        ) {
-          this.accountData.primaryAddress = this.auth.address
-        }
-        return this.auth
-      }
+      query: QUERY_AUTH
     }
   },
   computed: {
     addressOptions() {
       // if not editing, should just be the account's address
-      if (!this.isEditing)
+      if (!this.isEditing && this.account) {
         return this.account ? [this.account.primaryAddress] : []
+      }
       return (
-        (this.auth && (this.auth.account && this.auth.account.addresses)) ||
-        (this.auth.address && [this.auth.address])
+        this.auth &&
+        ((this.auth.account && this.auth.account.addresses) ||
+          (this.auth.address && [this.auth.address]))
       )
     },
     accountData() {
@@ -332,6 +263,12 @@ export default {
     }
   },
   watch: {
+    auth() {
+      // default the primaryAddress to the logged in address
+      if (this.auth && this.auth.address && !this.accountData.primaryAddress) {
+        this.accountData.primaryAddress = this.auth.address
+      }
+    },
     ['accountDraft.profile.username'](val = '', prev) {
       const formattedVal = formatUsername(val, { end: false })
       if (formattedVal == val) return
@@ -363,6 +300,12 @@ export default {
     &__input--upload {
       width: 100%;
       height: 100%;
+      background: rgba(black, 0.1);
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
 
       .input--upload__activator {
         width: 100%;

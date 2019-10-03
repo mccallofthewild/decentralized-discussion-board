@@ -5,6 +5,8 @@ import { concatObjects } from './utils'
 import { LoomCache } from './LoomCache'
 import { PersistedCache } from './PersistedCache'
 import Transaction from 'arweave/web/lib/transaction'
+import { Loom } from './Loom'
+import { LoomRecordFilter } from './LoomRecordFilter'
 
 const config = {
   get tagPropertyPrefix() {
@@ -29,7 +31,6 @@ export class LoomModel {
     app,
     props,
     timestamps = false,
-    versions = false,
     immutable = false,
     reducer = this.defaultReducer,
     // should throw error when invalid
@@ -54,7 +55,6 @@ export class LoomModel {
       })
     )
     this.hasTimestamps = timestamps
-    this.hasVersions = versions
     this.isImmutable = immutable
     this.recordVersionReducer = reducer
     this.customRecordValidator = validator
@@ -64,11 +64,45 @@ export class LoomModel {
     }
     this.requestCache = new LoomCache()
     this.optimisticRecordCache = PersistedCache.loadFromStorage({
-      storageNamespace: this.name,
+      storageNamespace: 'Optimistic-Response-Cache--' + this.name,
       entryFromJSON(r) {
         r.__tx = new Transaction(r.__tx)
+        return r
       }
     })
+
+    for (let method of Object.getOwnPropertyNames(this.__proto__)) {
+      const original = this.__proto__[method]
+      try {
+        this[method] = (...args) => {
+          const warn = e =>
+            console.warn(
+              `Error in ${this.__proto__.constructor.name}/${this.name}#${method}`,
+              e
+            )
+          try {
+            let rtn = original.bind(this)(...args)
+            if (rtn instanceof Promise) {
+              return (async () => {
+                try {
+                  await rtn
+                  return rtn
+                } catch (e) {
+                  warn(e)
+                  throw e
+                }
+              })()
+            }
+            return rtn
+          } catch (e) {
+            warn(e)
+            throw e
+          }
+        }
+      } catch (e) {
+        // expected to fail on getters
+      }
+    }
   }
 
   get defaultReducer() {
@@ -163,22 +197,20 @@ export class LoomModel {
       throw new this.errorTypes.RecordValidationError(
         `Missing required props: ${missingProps
           .map(p => p.name)
-          .join(', ')} on ${this.name} Record!`
+          .join(', ')} on ${this.name} Record No. ${
+          record.id
+        } (${this.getDateTime(record.__tx)})!`
       )
     }
-    await this.customRecordValidator(record)
-    return true
+    let result = await this.customRecordValidator(record)
+    return result
   }
 
   async toTransaction(data, txOptions = {}) {
     let recordMutationType = MutationTypes.UPDATE
     let existingVersions = []
-    if (data.id) {
-      if (this.hasVersions) {
-        console.log('loading versions')
-        const existingRecord = await this.find({ id: data.id })
-        if (existingRecord) existingVersions = existingRecord.versions
-      }
+
+    if (data.id && !this.isImmutable) {
     } else {
       data = {
         ...data,
@@ -198,24 +230,16 @@ export class LoomModel {
       storageData[prop] = tagData[prop]
       delete tagData[prop]
     }
-    if (this.isImmutable) {
-      const { id } = data
-      const existing = await this.findAll({ filter: { id }, first: 1 })
-      if (existing.length) {
-        throw new Error(`Update cancelled! "${this.name}" Model is immutable!`)
-      }
-    }
-    const uInt8ArrayStorageData = new TextEncoder().encode(
-      JSON.stringify({ ...storageData })
-    )
+    const txData = JSON.stringify({ ...storageData })
 
     const tx = await this.app.arweave.createTransaction(
       {
         ...txOptions,
-        data: uInt8ArrayStorageData
+        data: txData
       },
       wallet
     )
+
     const tagEntries = this.propsToTags({ ...tagData })
 
     for (const [name, value] of tagEntries) tx.addTag(name, value)
@@ -238,32 +262,53 @@ export class LoomModel {
     tx.addTag(DATE_TIME, new Date().toISOString())
     tx.addTag(MUTATION_TYPE, recordMutationType)
 
+    const cacheTimestamp = Date.now()
+    const address = await this.app.arweave.wallets.jwkToAddress(wallet)
+    const balance = await this.app.arweave.wallets.getBalance(address)
+    if (balance < tx.reward) {
+      throw new Error('not enough funds!')
+    }
     await this.app.arweave.transactions.sign(tx, wallet)
+    const isVerified = await this.app.arweave.transactions.verify(tx)
+    if (!isVerified) {
+      throw new Error('Failed to sign transaction')
+    }
+    const res = await this.app.arweave.transactions.post(tx)
+
     const { ...rawRecord } = this.fromTransaction({ transaction: tx })
+
     const record = this.addDynamicProps(rawRecord, {
       versions: [],
       transaction: tx
     })
-    if (record.versions) {
-      // record.versions.push(...existingVersions)
-      record.versions.unshift(record)
-    }
+    // if (record.versions) {
+    //   // record.versions.push(...existingVersions)
+    //   record.versions.unshift(record)
+    // }
     await this.validateRecord(record)
-    const res = await this.app.arweave.transactions.post(tx)
+
+    // set optimistic record before, so the actual record will be newer
+    this.optimisticRecordCache.set(record.id, record)
+    this.optimisticRecordCache.recordTimestamps.set(record.id, cacheTimestamp)
 
     switch (res.status) {
       case 200: {
         // only add to cache if it's successful (don't add the transaction because it's only needed when we load all of them)
-        console.log('added tx to cache')
-        this.optimisticRecordCache.set(record.id, record)
-        console.log('added record to cache')
         return record
       }
-      case 400: {
-        throw new Error('invalid transaction')
-      }
-      case 500: {
-        throw new Error('transaction error')
+      default: {
+        // if failed, delete cached version
+        this.optimisticRecordCache.delete(record.id)
+        switch (res.status) {
+          case 400: {
+            console.error(400, 'INVALID TRANSACTION')
+            throw new Error('invalid transaction')
+          }
+          case 500: {
+            console.error(500, 'TRANSACTION ERROR')
+            throw new Error('transaction error')
+          }
+        }
       }
     }
   }
@@ -278,27 +323,132 @@ export class LoomModel {
     return this.memoryCache[record ? 'records' : 'txs'][itemId]
   }
 
-  async find(filter) {
-    const { id } = filter
-    const cached = this.getFromMemoryCache(id, { record: true })
-    if (!!cached) return cached
-    let [record] = await this.findAll({ filter, first: 1 })
+  tryOptimisticResponse(id, record) {
+    const optimisiticRecord = this.optimisticRecordCache.get(id)
     if (record) {
-      this.optimisticRecordCache.delete(id)
+      // if optimistic record is newer, use it
+      if (
+        new Date(this.getDateTime(record.__tx)).getTime() <
+        this.optimisticRecordCache.recordTimestamps.get(id)
+      ) {
+        console.log(`Optimistic ${this.name} Record is newer`)
+        return optimisiticRecord
+      } else {
+        // if it's older or the same age, remove the optimistic record
+        this.optimisticRecordCache.delete(id)
+      }
     } else {
-      return this.optimisticRecordCache.get(id)
+      // if there is no record, return optimistic record
+      return optimisiticRecord
     }
     return record
   }
-  async findAll({ filter = {}, first = -1, skip = 0, withOptimistic = false }) {
+
+  async find(filter, { withVersions = false } = {}) {
+    const { id } = filter
+    requireArguments({ id }, { caller: `LoomModel(${this.name})#find` })
+    let record = this.getFromMemoryCache(id, { record: true })
+    if (!!record) {
+      try {
+        await this.validateRecord(record)
+      } catch (e) {
+        record = null
+      }
+    }
+
+    const logStatus = (record, { id }) =>
+      record && record.id != id
+        ? console.log('#FIND ERROR', this.name, record.id, id)
+        : null
+    logStatus(record, filter)
+    // if there wasn't a valid version in the cache
+    if (!record) {
+      ;[record] = await this.findAll({ filter, first: 1, withVersions })
+    }
+    logStatus(record, filter)
+    record = this.tryOptimisticResponse(id, record)
+    logStatus(record, filter)
+    return record
+  }
+
+  getTagValueFromTx(tagName, tx) {
+    let tag = tx.get('tags').find(tag => {
+      if (tagName == tag.get('name', { decode: true, string: true })) {
+        return true
+      }
+    })
+    if (!tag) return null
+    return tag.get('value', { decode: true, string: true })
+  }
+
+  async manuallyCheckForFilterMatch(filter, record) {
+    return await LoomRecordFilter.manuallyCheckForFilterMatch({
+      filter,
+      record,
+      loom: this.app
+    })
+  }
+
+  async findAll({ filter = {} }) {
+    const txIds = await this.findAllTransactionIds({})
+    const rawRecords = await this.loadRecordsByTxIds(txIds)
+    const optimisticRecords = this.optimisticRecordCache
+      .entries()
+      .map(([key, val]) => val)
+    const formattedRecords = rawRecords.map(r =>
+      this.addDynamicProps(r, { versions: [], transaction: r.__tx })
+    )
+    const combinedRecords = [...formattedRecords, ...optimisticRecords]
+    const areValid = await Promise.all(
+      combinedRecords.map(async r => {
+        try {
+          await this.validateRecord(r)
+          return await this.manuallyCheckForFilterMatch(filter, r)
+        } catch (e) {
+          return false
+        }
+      })
+    )
+    const filteredRecords = combinedRecords.filter((r, i) => areValid[i])
+    const sortedRecords = filteredRecords
+      .sort((a, b) => {
+        const [aTime, bTime] = [
+          this.getDateTime(a.__tx),
+          this.getDateTime(b.__tx)
+        ]
+        return aTime > bTime ? 1 : aTime == bTime ? 0 : aTime < bTime ? -1 : 0
+      })
+      .reverse()
+    const uniqueRecords = Object.values(
+      sortedRecords.reduce((prev, r) => {
+        prev[r.id] = r
+        return prev
+      }, {})
+    )
+    const versionedRecords = uniqueRecords.map(r => {
+      r.versions = sortedRecords.filter(v => v.id == r.id)
+      return r
+    })
+    return versionedRecords
+  }
+
+  async findAll2({
+    filter = {},
+    first = -1,
+    skip = 0,
+    withOptimistic = true,
+    withVersions = false
+  }) {
+    console.log('TEMP DISABLING ARQL FILTERS IN FAVOR OF CLIENT SIDE FILTERING')
+    filter = {}
     let findAllQuery = filter
-    if (this.isImmutable || !Object.values(filter).length) {
+    if (this.isImmutable) {
       findAllQuery = {
         ...filter,
         [SharedTagNames.MUTATION_TYPE]: MutationTypes.CREATE
       }
     }
-    const txIds = await this.findAllTransactionIds({
+    let txIds = await this.findAllTransactionIds({
       ...findAllQuery
       /* 
         querying *only* CREATE mutations is tempting, but invalidates the search,
@@ -307,7 +457,8 @@ export class LoomModel {
         won't make a difference.
       */
     })
-    if (!txIds.length) return []
+
+    txIds = txIds || []
 
     /*
       Cannot use Array#slice directly for pagination, as it would only slice off the first 
@@ -318,26 +469,24 @@ export class LoomModel {
     // if amount selector is default...
     let sliceEnd = first == -1 ? txIds.length : first + skip
     // do while in case first == -1 (only one iteration needed)
-    console.log(this.name + '#findAll', filter, 'txIds', txIds)
     do {
       // take all query result id's from where we started off last time to
       const slicedIds = txIds.slice(sliceStart, sliceEnd)
       // load each record
       try {
-        console.log(this.name + '#findAll (sliced ids)', slicedIds)
-        const records = await this.loadTransactionRecords(slicedIds)
+        const records = await this.loadRecordsByTxIds(slicedIds)
         // add each id to the unique id's Set
         records.forEach(r => txRecordIdsSet.add(r.id))
       } catch (e) {
         console.error(e)
       }
+
       // next iteration, start where we left off
       sliceStart = sliceEnd
       sliceEnd = sliceEnd + first
     } while (sliceStart < txIds.length && txRecordIdsSet.size < first)
 
     const txRecordIds = [...txRecordIdsSet]
-    console.log(this.name + '#findAll', filter, 'txIds', txIds, txRecordIds)
     // array of unique ID's
     const uniqueRecords = await Promise.all(
       txRecordIds.map(async (txRecordId, index) => {
@@ -345,31 +494,32 @@ export class LoomModel {
         if (cached) return cached
 
         // at least one item exists because that's what we're mapping over
-        let txRecordVersionsIds = await this.findAllTransactionIds({
+        let recordVersionsTxIds = await this.findAllTransactionIds({
           id: txRecordId
         })
 
-        if (!txRecordVersionsIds.length) return null
+        if (!recordVersionsTxIds.length) return null
 
         if (this.isImmutable) {
           // immutable means only the first record is valid
-          let [first] = txRecordVersionsIds
-          txRecordVersionsIds = [first]
+          let [first] = recordVersionsTxIds
+          recordVersionsTxIds = [first]
         }
         // if no versions
-        if (!this.hasVersions) {
+        if (!withVersions) {
           /*
              if it has versions, we *do* need to load every transaction.
              Otherwise, we only need the last valid record, 
              as it is the most recent update, and the first record, 
              as a basis to validate the last record
           */
-          const [first] = txRecordVersionsIds
+          const [first] = recordVersionsTxIds
           let lastValidRecord = null
           let i = 1
-          while (txRecordVersionsIds.length - i) {
-            const recordId = txRecordVersionsIds[txRecordVersionsIds.length - i]
-            const [record] = await this.loadTransactionRecords([recordId])
+          while (recordVersionsTxIds.length - i) {
+            const recordTxId =
+              recordVersionsTxIds[recordVersionsTxIds.length - i]
+            const [record] = await this.loadRecordsByTxIds([recordTxId])
             try {
               await this.validateRecord(record)
               lastValidRecord = record
@@ -377,13 +527,14 @@ export class LoomModel {
             } catch (e) {}
             i++
           }
-          txRecordVersionsIds = !lastValidRecord
+          recordVersionsTxIds = !lastValidRecord
             ? [first]
-            : [first, lastValidRecord]
+            : [first, lastValidRecord.__tx.id]
         }
-        const txRecordVersions = await this.loadTransactionRecords(
-          txRecordVersionsIds
+        const txRecordVersions = await this.loadRecordsByTxIds(
+          recordVersionsTxIds
         )
+
         let prevFilterRecordTime = 0
 
         let recordVersions = txRecordVersions
@@ -414,7 +565,7 @@ export class LoomModel {
         }
 
         const validRecordVersions = []
-        if (this.hasVersions) {
+        if (withVersions) {
           // time travel up through each record version
           await recordVersions.reduce(async (cumulative, recordVersion) => {
             cumulative = await cumulative
@@ -447,23 +598,43 @@ export class LoomModel {
       })
     )
     // remove null records and add records to memory cache
-    const finalRecords = uniqueRecords.filter(record => {
-      if (!record) return false
-      if (this.optimisticRecordCache.get(record.id)) {
-        // delete when the real record loads
-        this.optimisticRecordCache.delete(record.id)
-      }
-      this.addToMemoryCache(record)
-      return true
-    })
-    const optimisiticRecords = this.optimisticRecordCache
-      .entries()
-      .map(([key, val]) => val)
+    let finalRecords = uniqueRecords
+      .filter(record => {
+        if (!record) return false
+        return true
+      })
+      .map(record => {
+        this.addToMemoryCache(record)
+        return this.tryOptimisticResponse(record.id, record)
+      })
     // prepend optimisitic records
     if (withOptimistic || !Object.values(filter).length) {
-      return [...withOptimistic, ...finalRecords]
+      const optimisiticRecords = this.optimisticRecordCache
+        .entries()
+        .map(([key, val]) => val)
+        .filter(r => !!r)
+
+      finalRecords = [...optimisiticRecords, ...finalRecords]
     }
-    return finalRecords
+    const finalRecordsSet = new Set([...finalRecords])
+    for (let r of finalRecords) {
+      const isMatch = await this.manuallyCheckForFilterMatch(filter, r)
+      if (!isMatch) finalRecordsSet.delete(r)
+    }
+    finalRecords = [...finalRecordsSet]
+    finalRecords = Object.values(
+      finalRecords.reduce((prev, r) => {
+        prev[r.id] = r
+        return prev
+      }, {})
+    )
+    return finalRecords.sort((a, b) => {
+      const [aTime, bTime] = [
+        this.getDateTime(a.__tx),
+        this.getDateTime(b.__tx)
+      ]
+      return aTime > bTime ? 1 : aTime == bTime ? 0 : aTime < bTime ? -1 : 0
+    })
   }
 
   addDynamicProps(
@@ -485,17 +656,16 @@ export class LoomModel {
         createdAt
       }
     }
-    if (this.hasVersions) {
-      finalRecordVersion = {
-        ...finalRecordVersion,
-        versions: recordVersions
-      }
+
+    finalRecordVersion = {
+      ...finalRecordVersion,
+      versions: recordVersions
     }
 
     return finalRecordVersion
   }
 
-  async loadTransactionRecords(txIds) {
+  async loadRecordsByTxIds(txIds) {
     const nullifiableRecords = await Promise.all(
       txIds.map(async id => {
         try {
@@ -503,8 +673,7 @@ export class LoomModel {
           const tx = await this.loadTransactionById(id)
           return await this.fromTransaction({ transaction: tx })
         } catch (e) {
-          console.log(this.name + '#loadTransactionRecords (ERROR!)', id, txIds)
-          console.error(this.name + '#loadTransactionRecords (ERROR!)', e)
+          console.log(this.name + '#loadRecordsByTxIds (ERROR!)', e.message)
           return null
         }
       })
@@ -518,7 +687,7 @@ export class LoomModel {
     return tx
   }
 
-  async findAllTransactionIds(filter) {
+  async findAllTransactionIds(filter = {}) {
     const {
       APP_NAME,
       APP_VERSION,
@@ -534,10 +703,12 @@ export class LoomModel {
       // We want all data from all versions
       // [APP_VERSION]: this.app.version,
     })
+
     const queryJsonStr = JSON.stringify(query)
     const cached = this.requestCache.get(queryJsonStr)
     if (cached) return cached
     let txIds = await this.app.arweave.arql(query)
+    txIds = txIds || []
     this.requestCache.set(queryJsonStr, txIds)
     return txIds
   }
@@ -545,7 +716,7 @@ export class LoomModel {
   objToArql(obj, { isProp = false, isPropValue = false } = {}) {
     const sharedTagNames = Object.values(SharedTagNames)
     // (recursive call) process filter values
-    if (typeof obj != 'object') {
+    if (typeof obj != 'object' || obj == null || obj instanceof Array) {
       // (recursive call) return formatted property
       if (isProp) return config.tagPropertyPrefix + obj
       // (recursive call) return stringified record property value (un-stringified on record load)

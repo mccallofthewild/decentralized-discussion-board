@@ -1,20 +1,21 @@
 
 <template lang="pug">
 div 
-  Loading(v-if="$apollo.queries.allPosts.loading" width="300px" height="300px")
-  div(v-if="$apollo.loading")
-  div(v-for="post in allPosts").posts-container
+
+  div(v-for="post in posts").posts-container
     PostListItem(:post="post")
 </template>
 
 
 <script>
 import gql from 'graphql-tag'
-import { QUERY_POSTS } from '../../client-graphql'
+import { QUERY_POSTS } from '~/client-graphql'
 
 export default {
-  apollo: {
-    allPosts: QUERY_POSTS
+  props: {
+    posts: {
+      required: true
+    }
   }
 }
 </script>

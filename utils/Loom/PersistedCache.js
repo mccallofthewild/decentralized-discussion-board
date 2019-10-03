@@ -7,25 +7,30 @@ import PropTypes from 'prop-types'
   3. Expire data that is too old
 */
 export class PersistedCache extends LoomCache {
-  constructor(arg) {
+  constructor({ storageNamespace, entryFromJSON }) {
     PropTypes.checkPropTypes(
       {
         storageNamespace: PropTypes.string.isRequired,
         entryFromJSON: PropTypes.func
       },
-      args,
+      arguments[0],
       '#constructor',
       'PersistedCache'
     )
     super()
     // expire a record after one day
     this.millisecondsUntilExpiration = 24 * 60 * 60 * 1000
-    this.storageNamespace = 'Optimistic-Response-Cache--' + storageNamespace
+    this.storageNamespace = storageNamespace
     this.entryFromJSON = entryFromJSON || (r => r)
     this.recordTimestamps = new Map()
+    this.listenForStorageTriggers()
+  }
+  listenForStorageTriggers() {
     this.emitter.on(LoomCache.Events.MUTATION, ([key, value]) => {
       if (value) {
         this.recordTimestamps.set(key, Date.now())
+      } else {
+        this.recordTimestamps.delete(key)
       }
       this.saveToStorage()
     })
@@ -34,7 +39,9 @@ export class PersistedCache extends LoomCache {
     const instance = new this({ storageNamespace, entryFromJSON })
     const json = localStorage.getItem(instance.storageNamespace)
     try {
-      let { entries, recordTimestamps } = JSON.parse(json)
+      const parsed = JSON.parse(json)
+      if (!parsed) return instance
+      let { entries, recordTimestamps } = parsed
       recordTimestamps = new Map(recordTimestamps)
       for (let [key, val] of entries) {
         try {
@@ -53,6 +60,7 @@ export class PersistedCache extends LoomCache {
         }
       }
     } catch (e) {
+      console.error(this.storageNamespace, e)
       // fails when storage item isn't valid JSON
     }
     return instance
@@ -60,8 +68,8 @@ export class PersistedCache extends LoomCache {
 
   saveToStorage() {
     const data = {
-      entries: this.entries(),
-      recordTimestamps: this.recordTimestamps.entries()
+      entries: [...this.entries()],
+      recordTimestamps: [...this.recordTimestamps.entries()]
     }
     localStorage.setItem(this.storageNamespace, JSON.stringify(data))
   }

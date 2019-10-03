@@ -3,9 +3,9 @@
   form(@submit.prevent="submit")
     div(v-if="allCategories")
       button(type="button" @click="createCategory") Create Category
-      select(v-model="newPost.category") 
-        option(v-for="c in allCategories" :value="c") {{ c.title }}
-        option(selected="selected" :value="undefined") Select Category
+      select(@change="e => newPost.categoryId = e.target.value") 
+        option(v-for="c in allCategories" :value="c.id" :selected="c.id == newPost.categoryId") {{ c.title }}
+        option(:value="null" :selected="null == newPost.categoryId") Select Category
     label 
       span Title
     input(required :placeholder="placeholder.title" v-model="newPost.title")
@@ -33,7 +33,8 @@ As of some one gently rapping, rapping at my chamber door.
             Only this and nothing more.”`
 const blankPost = _ => ({
   title: '',
-  content: ''
+  content: '',
+  categoryId: null
 })
 export default {
   data: _ => ({
@@ -64,6 +65,7 @@ export default {
         },
         refetchQueries: [{ query: QUERY_CATEGORIES }]
       })
+      this.newPost.categoryId = category.id
     },
     async submit() {
       if (!this.auth || !this.auth.account) return alert('login')
@@ -74,14 +76,7 @@ export default {
         variables: {
           post: { ...this.newPost, accountId: this.auth.account.id }
         },
-        update: (store, { data: { post: postData } }) => {
-          // Read the data from our cache for this query.
-          const data = store.readQuery({ query: QUERY_POSTS })
-          // Add our post from the mutation to the beginning
-          const post = data.allPosts.unshift(postData)
-          // Write our data back to the cache.
-          store.writeQuery({ query: QUERY_POSTS, data })
-        }
+        refetchQueries: [{ query: QUERY_POSTS }]
       })
       console.log('created post', post)
       this.newPost = blankPost()

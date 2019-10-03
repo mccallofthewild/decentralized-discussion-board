@@ -32,13 +32,14 @@ export default {
         const [file] = e.target.files
 
         const fr = new FileReader()
-        fr.onload = ev => {
+        fr.onload = async ev => {
           try {
             const wallet = ev.target.result
             if (!file.type.includes('json')) {
               // QR code image parser
             }
-            this.$apollo.mutate({
+            alert(wallet)
+            await this.$apollo.mutate({
               mutation: MUTATION_LOGIN,
               refetchQueries: [{ query: QUERY_AUTH }],
               variables: {

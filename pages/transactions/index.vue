@@ -1,7 +1,7 @@
 
 <template lang="pug">
   ul.transactions_container
-    Loading(v-if="!allTransactions && $apollo.loading")
+    Lottie(v-if="!allTransactions && $apollo.loading")
     li(v-for="tx in allTransactions" :key="tx.id").tx 
       a(:href="`https://viewblock.io/arweave/tx/${tx.id}`" target="_blank")
         | ID: 

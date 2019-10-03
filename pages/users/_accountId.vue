@@ -1,7 +1,7 @@
 
 <template lang="pug">
 div 
-  Loading(v-if="!account" width="33vh" height="33vh")
+  Lottie(v-if="!account" width="33vh" height="33vh")
   AccountProfile(v-else-if="account" :account="account")
 </template>
 

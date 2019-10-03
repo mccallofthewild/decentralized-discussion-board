@@ -23,8 +23,10 @@ export default {
           if (this.processJimp) {
             processed = await this.processJimp(processed)
           }
-          const processedDataUri = await processed.getBase64Async(Jimp.MIME_PNG)
-          this.$emit('image-type', 'PNG')
+          const processedDataUri = await processed.getBase64Async(
+            Jimp.MIME_JPEG
+          )
+          this.$emit('image-type', 'JPG')
           this.$emit('data-uri', processedDataUri)
         } catch (e) {
           alert('image upload failed ' + e.message)
