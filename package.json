@@ -28,7 +28,7 @@
     "graphql-tag": "^2.10.1",
     "graphql-tools": "^4.0.5",
     "jimp": "^0.8.4",
-    "node-sass": "^4.12.0",
+    "node-sass": "^4.13.1",
     "node-webcrypto-ossl": "^1.0.48",
     "nuxt": "^2.0.0",
     "prop-types": "^15.7.2",
